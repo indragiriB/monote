@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Menu, ChevronLeft } from 'lucide-react'
 import { supabase } from './lib/supabaseClient'
 import { useNotes } from './hooks/useNotes'
 import Sidebar from './components/Sidebar'
@@ -7,6 +8,13 @@ import NoteList from './components/NoteList'
 import NoteEditor from './components/NoteEditor'
 import AuthScreen from './pages/AuthScreen'
 import { syncWidget } from './lib/widgetBridge'
+
+const FILTER_LABELS = {
+  all: 'All Notes',
+  pinned: 'Pinned',
+  archived: 'Archived',
+  trashed: 'Trash',
+}
 
 export default function App() {
   const [session, setSession] = useState(undefined) // undefined = loading
@@ -18,6 +26,13 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches
   )
+
+  // Mobile-only navigation state. Below the `md` breakpoint we show one
+  // panel at a time (sidebar drawer OR list OR editor) instead of the
+  // three-column desktop layout — a phone screen just isn't wide enough
+  // for all three at once.
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [mobileView, setMobileView] = useState('list') // 'list' | 'editor'
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
@@ -59,6 +74,28 @@ export default function App() {
   async function handleCreateNote() {
     const note = await createNote()
     setActiveId(note.id)
+    setSidebarOpen(false)
+    setMobileView('editor')
+  }
+
+  function handleSelectNote(id) {
+    setActiveId(id)
+    setMobileView('editor')
+  }
+
+  function handleFilterChange(f) {
+    setFilter(f)
+    setActiveTag(null)
+    setActiveId(null)
+    setSidebarOpen(false)
+    setMobileView('list')
+  }
+
+  function handleTagSelect(tag) {
+    setActiveTag(tag)
+    setActiveId(null)
+    setSidebarOpen(false)
+    setMobileView('list')
   }
 
   // Intent used by the Android widget's "Create Note" shortcut
@@ -83,36 +120,78 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex">
-      <Sidebar
-        filter={filter}
-        onFilterChange={(f) => {
-          setFilter(f)
-          setActiveTag(null)
-        }}
-        onCreateNote={handleCreateNote}
-        darkMode={darkMode}
-        onToggleDark={() => setDarkMode((d) => !d)}
-        tags={allTags}
-        activeTag={activeTag}
-        onTagSelect={setActiveTag}
-      />
+    <div className="h-[100dvh] flex overflow-hidden relative">
+      {/* Backdrop for the mobile sidebar drawer */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/40 z-30 md:hidden"
+        />
+      )}
 
-      <div className="w-80 shrink-0 border-r border-hair flex flex-col">
-        <SearchBar value={search} onChange={setSearch} view={view} onViewChange={setView} />
-        <NoteList notes={visibleNotes} activeId={activeId} onSelect={setActiveId} view={view} />
+      {/* Sidebar: static column on desktop, slide-in drawer on mobile */}
+      <div
+        className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 ease-out
+          md:static md:translate-x-0 md:z-auto
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        <Sidebar
+          filter={filter}
+          onFilterChange={handleFilterChange}
+          onCreateNote={handleCreateNote}
+          darkMode={darkMode}
+          onToggleDark={() => setDarkMode((d) => !d)}
+          tags={allTags}
+          activeTag={activeTag}
+          onTagSelect={handleTagSelect}
+          onClose={() => setSidebarOpen(false)}
+        />
       </div>
 
-      <NoteEditor
-        note={activeNote}
-        onChange={updateNote}
-        onTogglePin={togglePin}
-        onArchive={(id) => updateNote(id, { archived: true })}
-        onDelete={(id) => {
-          deleteNote(id)
-          setActiveId(null)
-        }}
-      />
+      {/* Note list column */}
+      <div
+        className={`w-full md:w-80 shrink-0 border-hair flex-col
+          ${mobileView === 'editor' ? 'hidden' : 'flex'} md:flex md:border-r`}
+      >
+        <div className="flex items-center gap-2 p-3 border-b border-hair md:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 border border-hair"
+            aria-label="Open menu"
+          >
+            <Menu size={16} />
+          </button>
+          <span className="text-xs uppercase tracking-widest font-bold">
+            {activeTag ? `#${activeTag}` : FILTER_LABELS[filter]}
+          </span>
+        </div>
+        <SearchBar value={search} onChange={setSearch} view={view} onViewChange={setView} />
+        <NoteList notes={visibleNotes} activeId={activeId} onSelect={handleSelectNote} view={view} />
+      </div>
+
+      {/* Editor column */}
+      <div className={`flex-1 min-w-0 flex-col ${mobileView === 'list' ? 'hidden' : 'flex'} md:flex`}>
+        <button
+          onClick={() => setMobileView('list')}
+          className="flex items-center gap-1 px-3 py-2 border-b border-hair text-xs uppercase tracking-wide md:hidden"
+        >
+          <ChevronLeft size={14} /> Back
+        </button>
+        <NoteEditor
+          note={activeNote}
+          onChange={updateNote}
+          onTogglePin={togglePin}
+          onArchive={(id) => {
+            updateNote(id, { archived: true })
+            setMobileView('list')
+          }}
+          onDelete={(id) => {
+            deleteNote(id)
+            setActiveId(null)
+            setMobileView('list')
+          }}
+        />
+      </div>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { FileText, Pin, Archive, Trash2, Plus, Moon, Sun } from 'lucide-react'
+import { FileText, Pin, Archive, Trash2, Plus, Moon, Sun, X } from 'lucide-react'
 
 const NAV_ITEMS = [
   { key: 'all', label: 'All Notes', icon: FileText },
@@ -7,18 +7,29 @@ const NAV_ITEMS = [
   { key: 'trashed', label: 'Trash', icon: Trash2 },
 ]
 
-export default function Sidebar({ filter, onFilterChange, onCreateNote, darkMode, onToggleDark, tags = [], activeTag, onTagSelect }) {
+export default function Sidebar({ filter, onFilterChange, onCreateNote, darkMode, onToggleDark, tags = [], activeTag, onTagSelect, onClose }) {
   return (
-    <aside className="w-56 shrink-0 border-r border-hair h-full flex flex-col">
+    <aside className="w-64 shrink-0 border-r border-hair h-full flex flex-col bg-ink-1000 dark:bg-ink-0">
       <div className="p-4 border-b border-hair flex items-center justify-between">
         <span className="text-sm font-bold tracking-widest uppercase">monote</span>
-        <button
-          onClick={onToggleDark}
-          className="p-1 border border-hair hover:bg-ink-950 dark:hover:bg-ink-100"
-          aria-label="Toggle theme"
-        >
-          {darkMode ? <Sun size={14} /> : <Moon size={14} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onToggleDark}
+            className="p-1 border border-hair hover:bg-ink-950 dark:hover:bg-ink-100"
+            aria-label="Toggle theme"
+          >
+            {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1 border border-hair hover:bg-ink-950 dark:hover:bg-ink-100 md:hidden"
+              aria-label="Close menu"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       <button
