@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">monote</string>
+    <string name="title_activity_main">monote</string>
+    <string name="package_name">com.indra.monote</string>
+    <string name="custom_url_scheme">com.indra.monote</string>
+</resources>

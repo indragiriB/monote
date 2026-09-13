@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient'
 import { db } from './localDb'
+import { scheduleDeadlineReminder, cancelDeadlineReminder } from './reminders'
 
 let syncing = false
 let channel = null
@@ -57,24 +58,34 @@ export async function pushOutbox() {
   }
 }
 
-/** Pull remote rows newer than what we have locally. */
+/** Pull remote rows, but never clobber a local edit that's still waiting
+ * in the outbox — otherwise a slow/failed push followed by a pull would
+ * silently overwrite unsynced local changes with the older server copy. */
 export async function pullRemote(userId) {
   if (!navigator.onLine || !userId) return
 
+  const pendingNoteIds = new Set(
+    (await db.outbox.where('entity').equals('notes').toArray()).map((j) => j.payload.id)
+  )
   const { data: notes, error: notesErr } = await supabase
     .from('notes')
     .select('*')
     .eq('user_id', userId)
   if (!notesErr && notes) {
-    await db.notes.bulkPut(notes.map((n) => ({ ...n, dirty: 0 })))
+    const safeToApply = notes.filter((n) => !pendingNoteIds.has(n.id))
+    await db.notes.bulkPut(safeToApply.map((n) => ({ ...n, dirty: 0 })))
   }
 
+  const pendingTagIds = new Set(
+    (await db.outbox.where('entity').equals('tags').toArray()).map((j) => j.payload.id)
+  )
   const { data: tags, error: tagsErr } = await supabase
     .from('tags')
     .select('*')
     .eq('user_id', userId)
   if (!tagsErr && tags) {
-    await db.tags.bulkPut(tags.map((t) => ({ ...t, dirty: 0 })))
+    const safeToApply = tags.filter((t) => !pendingTagIds.has(t.id))
+    await db.tags.bulkPut(safeToApply.map((t) => ({ ...t, dirty: 0 })))
   }
 }
 
@@ -100,8 +111,36 @@ export function subscribeRealtime(userId, onChange) {
       async (payload) => {
         if (payload.eventType === 'DELETE') {
           await db.notes.delete(payload.old.id)
+          cancelDeadlineReminder(payload.old.id).catch(() => {})
         } else {
-          await db.notes.put({ ...payload.new, dirty: 0 })
+          const pending = await db.outbox
+            .where('entity')
+            .equals('notes')
+            .and((j) => j.payload.id === payload.new.id)
+            .first()
+          if (!pending) {
+            await db.notes.put({ ...payload.new, dirty: 0 })
+            // A deadline change made on another device still needs a local
+            // reminder scheduled on this one.
+            scheduleDeadlineReminder(payload.new).catch(() => {})
+          }
+        }
+        onChange?.()
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'tags', filter: `user_id=eq.${userId}` },
+      async (payload) => {
+        if (payload.eventType === 'DELETE') {
+          await db.tags.delete(payload.old.id)
+        } else {
+          const pending = await db.outbox
+            .where('entity')
+            .equals('tags')
+            .and((j) => j.payload.id === payload.new.id)
+            .first()
+          if (!pending) await db.tags.put({ ...payload.new, dirty: 0 })
         }
         onChange?.()
       }

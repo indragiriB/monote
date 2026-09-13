@@ -25,19 +25,17 @@ body,
   border-color: #222222;
 }
 
-/* Scrollbars stay monochrome too. */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Scrollbars are hidden everywhere — every scrollable area (sidebar,
+   note list, editor, popovers, calendar) still scrolls normally with
+   touch/trackpad/keyboard, it just never shows a visible scrollbar track. */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge/IE */
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #999999;
-}
-.dark ::-webkit-scrollbar-thumb {
-  background: #333333;
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, the Android WebView */
+  width: 0;
+  height: 0;
 }
 
 /* Markdown preview inside the editor — kept flat, no colored syntax. */

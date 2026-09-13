@@ -72,6 +72,24 @@ Offline-first sync needs network state awareness. Add to the manifest:
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
+Deadline reminders (`src/lib/reminders.js`, via `@capacitor/local-notifications`)
+need a couple more, since Android 13+ requires runtime notification
+permission and exact-time alarms need their own declaration:
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+```
+`POST_NOTIFICATIONS` is requested at runtime by
+`ensureNotificationPermission()` the first time a user sets a deadline — the
+manifest entry just has to be present for that prompt to be allowed at all.
+After adding the plugin, run:
+```bash
+npm install
+npx cap sync android
+```
+so the native plugin code is copied into `android/`.
+
 ## 7. App icon / splash (optional, cosmetic)
 Use `@capacitor/assets` to generate a B&W icon set from a single source
 image, matching the app's monochrome theme:

@@ -19,18 +19,26 @@ monote/
 │   ├── pages/
 │   │   └── AuthScreen.jsx       # Supabase email/password auth
 │   ├── components/
-│   │   ├── Sidebar.jsx          # Filters (All/Pinned/Archived/Trash) + tags
+│   │   ├── Sidebar.jsx          # Filters (All/Pinned/By Tag/Calendar/Archived/Trash)
 │   │   ├── SearchBar.jsx        # Search input + list/grid toggle
-│   │   ├── NoteList.jsx         # List/grid of note previews
-│   │   ├── NoteEditor.jsx       # Title, tags, Markdown editor + preview
-│   │   └── TagBadge.jsx
+│   │   ├── NoteList.jsx         # Paginated list/grid of note previews, trash Restore/Delete Forever
+│   │   ├── NoteEditor.jsx       # Title, tag picker, deadline picker, Markdown editor + preview, timestamps
+│   │   ├── DeadlinePicker.jsx   # Popover mini-calendar to set/clear a note's deadline
+│   │   ├── CalendarView.jsx     # "Calendar" menu — month grid, red dot on overdue/near-due days
+│   │   ├── TagPicker.jsx        # Popover: select existing tags or create a new one + color
+│   │   ├── TagOverview.jsx      # "By Tag" menu — tag grid with note counts
+│   │   └── TagBadge.jsx         # Colored tag pill
 │   ├── hooks/
-│   │   └── useNotes.js          # Local-first CRUD, wraps Dexie + Supabase
+│   │   ├── useNotes.js          # Local-first CRUD, paginated Dexie reads + Supabase sync
+│   │   └── useTags.js           # Tag CRUD (name + color), same sync path as notes
 │   └── lib/
 │       ├── supabaseClient.js
-│       ├── localDb.js           # Dexie (IndexedDB) schema + outbox queue
-│       ├── sync.js               # Push outbox, pull remote, Realtime sub
-│       └── widgetBridge.js       # (Android only) mirrors notes to widget
+│       ├── localDb.js           # Dexie schema (notes, tags, outbox) incl. tag + deadline indexes
+│       ├── noteQueries.js       # Cursor-based paginated/filterable Dexie queries, deadline range query
+│       ├── tagColors.js         # Curated tag color palette
+│       ├── dates.js             # Timestamp/deadline formatting (relative, full, overdue/near checks)
+│       ├── sync.js              # Push outbox, pull remote, Realtime sub (notes + tags)
+│       └── widgetBridge.js      # (Android only) mirrors notes to widget
 ├── supabase/
 │   └── schema.sql               # notes + tags tables, RLS policies, Realtime
 ├── docs/
@@ -55,8 +63,10 @@ For the Android build and widget, see `docs/capacitor-setup.md` and
 `docs/android-widget.md`.
 
 ## Design notes
-- Pure monochrome palette (`tailwind.config.js` → `colors.ink`), no accent
-  colors anywhere — status/selection is shown with inverted fg/bg, not hue.
+- Pure monochrome base palette (`tailwind.config.js` → `colors.ink`); tags
+  are the one deliberate splash of color — a small curated palette
+  (`lib/tagColors.js`) used only as a badge border/dot, never a text fill,
+  so the rest of the UI stays flat B&W.
 - 1px hairline borders (`.border-hair`) everywhere instead of shadows.
 - `JetBrains Mono` for the whole UI, loaded via Google Fonts in
   `index.html`, with `Fira Code`/`Geist Mono`/system monospace fallbacks.
@@ -64,3 +74,33 @@ For the Android build and widget, see `docs/capacitor-setup.md` and
   queued in an `outbox` table; a sync loop replays the outbox against
   Supabase and pulls remote changes back in, with Realtime pushing live
   updates from other devices.
+- Reads are paginated, not a full-table load: `useNotes` fetches 30 notes
+  at a time straight off a Dexie cursor (`lib/noteQueries.js`), so the app
+  stays responsive whether you have a dozen notes or several thousand.
+- Tags are picked from a managed list (`TagPicker`), not free-typed — each
+  tag has exactly one color everywhere it appears, and the "By Tag" menu
+  (`TagOverview`) gives a note-count-per-tag view using a Dexie multi-entry
+  index instead of scanning every note.
+- Notes can carry an optional deadline (`DeadlinePicker`). Once a deadline
+  is overdue or within 24 hours, the note's background turns red — in the
+  list, in the editor's deadline badge, and as a red dot on that day in the
+  "Calendar" month view (`CalendarView`), which uses a dedicated Dexie
+  index range query so it only ever touches notes due in the visible month.
+  Every day in the calendar is clickable (not just days with a deadline) so
+  you can check e.g. tomorrow even if nothing's due yet.
+- Notes can be marked **Done** — background turns green, title gets a
+  strikethrough, and a done note is never flagged red for its deadline
+  even if it's overdue. There's a dedicated "Done" menu in the sidebar.
+- Trash is a soft-delete: notes there show **Restore** and **Delete
+  Forever** actions (with a confirmation before the permanent one) instead
+  of the normal pin/archive/delete row. Archive works the same way in
+  reverse — an **Unarchive** action in both the list and the editor.
+- Sync guards against a data-loss race: if a local edit is still waiting
+  in the outbox (not yet pushed), a background pull or a Realtime echo
+  will never overwrite it with the older server copy.
+- Deadline reminders (`lib/reminders.js`): one an hour before, one right at
+  the deadline. On Android these are real OS alarms scheduled via
+  `@capacitor/local-notifications` (survive the app being closed); on the
+  web it falls back to the browser Notification API, which only fires
+  while the tab stays open. Tapping an Android notification opens straight
+  to that note.

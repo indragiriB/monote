@@ -15,13 +15,20 @@ create table if not exists public.notes (
   pinned      boolean not null default false,
   archived    boolean not null default false,
   trashed     boolean not null default false,
+  done        boolean not null default false,  -- marked as completed
+  deadline    timestamptz,                     -- optional due date/time, null = none
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 
+-- Migrating an existing database that predates the `deadline`/`done` columns:
+-- alter table public.notes add column if not exists deadline timestamptz;
+-- alter table public.notes add column if not exists done boolean not null default false;
+
 create index if not exists notes_user_id_idx on public.notes (user_id);
 create index if not exists notes_updated_at_idx on public.notes (updated_at desc);
 create index if not exists notes_tags_idx on public.notes using gin (tags);
+create index if not exists notes_deadline_idx on public.notes (deadline);
 
 -- ─────────────────────────────────────────────
 -- tags
@@ -32,9 +39,13 @@ create table if not exists public.tags (
   id          uuid primary key default uuid_generate_v4(),
   user_id     uuid not null references auth.users(id) on delete cascade,
   name        text not null,
+  color       text not null default '#78716C',  -- hex color, one per tag
   created_at  timestamptz not null default now(),
   unique (user_id, name)
 );
+
+-- Migrating an existing database that predates the `color` column:
+-- alter table public.tags add column if not exists color text not null default '#78716C';
 
 -- ─────────────────────────────────────────────
 -- updated_at auto-touch trigger
@@ -77,6 +88,7 @@ create policy "tags_delete_own" on public.tags
   for delete using (auth.uid() = user_id);
 
 -- ─────────────────────────────────────────────
--- Realtime — allow the notes table to broadcast changes
+-- Realtime — allow the notes and tags tables to broadcast changes
 -- ─────────────────────────────────────────────
 alter publication supabase_realtime add table public.notes;
+alter publication supabase_realtime add table public.tags;

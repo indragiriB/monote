@@ -1,19 +1,28 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Menu, ChevronLeft } from 'lucide-react'
 import { supabase } from './lib/supabaseClient'
+import { db } from './lib/localDb'
 import { useNotes } from './hooks/useNotes'
+import { useTags } from './hooks/useTags'
 import Sidebar from './components/Sidebar'
 import SearchBar from './components/SearchBar'
 import NoteList from './components/NoteList'
 import NoteEditor from './components/NoteEditor'
+import TagOverview from './components/TagOverview'
+import CalendarView from './components/CalendarView'
 import AuthScreen from './pages/AuthScreen'
 import { syncWidget } from './lib/widgetBridge'
+import { rehydrateReminders, onNotificationTap } from './lib/reminders'
+import { getUpcomingDeadlines } from './lib/noteQueries'
 
 const FILTER_LABELS = {
   all: 'All Notes',
   pinned: 'Pinned',
+  done: 'Done',
   archived: 'Archived',
   trashed: 'Trash',
+  grouped: 'By Tag',
+  calendar: 'Calendar',
 }
 
 export default function App() {
@@ -23,6 +32,7 @@ export default function App() {
   const [view, setView] = useState('list')
   const [activeId, setActiveId] = useState(null)
   const [activeTag, setActiveTag] = useState(null)
+  const [activeDay, setActiveDay] = useState(null) // 'YYYY-MM-DD', for the Calendar menu
   const [darkMode, setDarkMode] = useState(
     () => window.matchMedia('(prefers-color-scheme: dark)').matches
   )
@@ -46,30 +56,71 @@ export default function App() {
 
   const userId = session?.user?.id
 
-  const { notes, createNote, updateNote, deleteNote, togglePin } = useNotes({
+  const { tags, createTag, colorOf } = useTags(userId)
+
+  const {
+    notes,
+    hasMore,
+    isFetchingMore,
+    loadMore,
+    createNote,
+    updateNote,
+    deleteNote,
+    togglePin,
+    toggleDone,
+  } = useNotes({
     userId,
     filter,
     search,
+    tag: activeTag,
+    day: activeDay,
   })
 
-  const visibleNotes = useMemo(
-    () => (activeTag ? notes.filter((n) => (n.tags || []).includes(activeTag)) : notes),
-    [notes, activeTag]
-  )
+  // The currently selected note might not be in the currently-paginated /
+  // filtered `notes` result (e.g. opened from a notification tap, or from
+  // the calendar/tag drill-in views) — fall back to fetching it directly.
+  const [directNote, setDirectNote] = useState(null)
+  useEffect(() => {
+    if (!activeId || notes.some((n) => n.id === activeId)) {
+      setDirectNote(null)
+      return
+    }
+    let cancelled = false
+    db.notes.get(activeId).then((n) => {
+      if (!cancelled) setDirectNote(n ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [activeId, notes])
 
-  const allTags = useMemo(() => {
-    const set = new Set()
-    notes.forEach((n) => (n.tags || []).forEach((t) => set.add(t)))
-    return [...set].sort()
-  }, [notes])
+  const activeNote = notes.find((n) => n.id === activeId) ?? directNote
 
-  const activeNote = visibleNotes.find((n) => n.id === activeId) ?? null
-
-  // Mirror the current note set to the Android home screen widget
+  // Mirror the current (loaded) note set to the Android home screen widget
   // whenever it changes (no-op on web, see lib/widgetBridge.js).
   useEffect(() => {
     syncWidget(notes)
   }, [notes])
+
+  // Re-arm reminders for every upcoming deadline once we're logged in —
+  // this is what makes reminders survive an app restart (a fresh Android
+  // install's alarm table, and the in-memory web timers, both start empty).
+  useEffect(() => {
+    if (!userId) return
+    rehydrateReminders(getUpcomingDeadlines).catch(() => {})
+  }, [userId])
+
+  // Tapping an Android notification opens straight to that note.
+  useEffect(() => {
+    let cleanup = () => {}
+    onNotificationTap((noteId) => {
+      setActiveId(noteId)
+      setMobileView('editor')
+    }).then((remove) => {
+      cleanup = remove
+    })
+    return () => cleanup()
+  }, [])
 
   async function handleCreateNote() {
     const note = await createNote()
@@ -86,6 +137,7 @@ export default function App() {
   function handleFilterChange(f) {
     setFilter(f)
     setActiveTag(null)
+    setActiveDay(null)
     setActiveId(null)
     setSidebarOpen(false)
     setMobileView('list')
@@ -96,6 +148,34 @@ export default function App() {
     setActiveId(null)
     setSidebarOpen(false)
     setMobileView('list')
+  }
+
+  // Drilling into a tag from the "By Tag" overview: keep filter === 'grouped'
+  // but now with a tag selected, so the back arrow returns to the overview.
+  function handleSelectTagFromOverview(name) {
+    setActiveTag(name)
+    setActiveId(null)
+    setMobileView('list')
+  }
+
+  // Drilling into a day from the Calendar menu: keep filter === 'calendar'
+  // but now with a day selected, so the back arrow returns to the month grid.
+  function handleSelectDay(day) {
+    setActiveDay(day)
+    setActiveId(null)
+    setMobileView('list')
+  }
+
+  async function handleRestore(id) {
+    await updateNote(id, { trashed: false })
+  }
+
+  async function handleHardDelete(id) {
+    await deleteNote(id, { hard: true })
+    if (activeId === id) {
+      setActiveId(null)
+      setMobileView('list')
+    }
   }
 
   // Intent used by the Android widget's "Create Note" shortcut
@@ -119,8 +199,13 @@ export default function App() {
     return <AuthScreen />
   }
 
+  const showTagOverview = filter === 'grouped' && !activeTag
+  const showCalendarOverview = filter === 'calendar' && !activeDay
+  const trashedView = filter === 'trashed'
+  const archivedView = filter === 'archived'
+
   return (
-    <div className="h-[100dvh] flex overflow-hidden relative">
+    <div className="h-[100dvh] flex overflow-hidden relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Backdrop for the mobile sidebar drawer */}
       {sidebarOpen && (
         <div
@@ -129,10 +214,14 @@ export default function App() {
         />
       )}
 
-      {/* Sidebar: static column on desktop, slide-in drawer on mobile */}
+      {/* Sidebar: static column on desktop, slide-in drawer on mobile.
+          `fixed` elements ignore the root's padding above (they position
+          against the viewport, not their padded parent), so this drawer
+          needs its own safe-area padding to clear the status/nav bars. */}
       <div
         className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 ease-out
-          md:static md:translate-x-0 md:z-auto
+          pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
+          md:static md:translate-x-0 md:z-auto md:pt-0 md:pb-0
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <Sidebar
@@ -141,14 +230,14 @@ export default function App() {
           onCreateNote={handleCreateNote}
           darkMode={darkMode}
           onToggleDark={() => setDarkMode((d) => !d)}
-          tags={allTags}
+          tags={tags}
           activeTag={activeTag}
           onTagSelect={handleTagSelect}
           onClose={() => setSidebarOpen(false)}
         />
       </div>
 
-      {/* Note list column */}
+      {/* Note list / tag overview / calendar column */}
       <div
         className={`w-full md:w-80 shrink-0 border-hair flex-col
           ${mobileView === 'editor' ? 'hidden' : 'flex'} md:flex md:border-r`}
@@ -156,33 +245,81 @@ export default function App() {
         <div className="flex items-center gap-2 p-3 border-b border-hair md:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 border border-hair"
+            className="p-2.5 border border-hair"
             aria-label="Open menu"
           >
-            <Menu size={16} />
+            <Menu size={20} />
           </button>
-          <span className="text-xs uppercase tracking-widest font-bold">
-            {activeTag ? `#${activeTag}` : FILTER_LABELS[filter]}
+          <span className="text-sm uppercase tracking-widest font-bold truncate">
+            {activeTag ? `#${activeTag}` : activeDay ? activeDay : FILTER_LABELS[filter]}
           </span>
         </div>
-        <SearchBar value={search} onChange={setSearch} view={view} onViewChange={setView} />
-        <NoteList notes={visibleNotes} activeId={activeId} onSelect={handleSelectNote} view={view} />
+
+        {filter === 'grouped' && activeTag && (
+          <button
+            onClick={() => setActiveTag(null)}
+            className="flex items-center gap-1 px-3 py-3 md:py-2 border-b border-hair text-sm md:text-xs uppercase tracking-wide hover:bg-ink-950 dark:hover:bg-ink-100"
+          >
+            <ChevronLeft size={18} className="md:hidden" />
+            <ChevronLeft size={14} className="hidden md:block" /> All tags
+          </button>
+        )}
+
+        {filter === 'calendar' && activeDay && (
+          <button
+            onClick={() => setActiveDay(null)}
+            className="flex items-center gap-1 px-3 py-3 md:py-2 border-b border-hair text-sm md:text-xs uppercase tracking-wide hover:bg-ink-950 dark:hover:bg-ink-100"
+          >
+            <ChevronLeft size={18} className="md:hidden" />
+            <ChevronLeft size={14} className="hidden md:block" /> Calendar
+          </button>
+        )}
+
+        {showTagOverview ? (
+          <TagOverview tags={tags} onSelectTag={handleSelectTagFromOverview} />
+        ) : showCalendarOverview ? (
+          <CalendarView onSelectDay={handleSelectDay} />
+        ) : (
+          <>
+            <SearchBar value={search} onChange={setSearch} view={view} onViewChange={setView} />
+            <NoteList
+              notes={notes}
+              activeId={activeId}
+              onSelect={handleSelectNote}
+              view={view}
+              colorOf={colorOf}
+              hasMore={hasMore}
+              isFetchingMore={isFetchingMore}
+              onLoadMore={loadMore}
+              trashedView={trashedView}
+              onRestore={handleRestore}
+              onHardDelete={handleHardDelete}
+              archivedView={archivedView}
+              onUnarchive={(id) => updateNote(id, { archived: false })}
+            />
+          </>
+        )}
       </div>
 
       {/* Editor column */}
       <div className={`flex-1 min-w-0 flex-col ${mobileView === 'list' ? 'hidden' : 'flex'} md:flex`}>
         <button
           onClick={() => setMobileView('list')}
-          className="flex items-center gap-1 px-3 py-2 border-b border-hair text-xs uppercase tracking-wide md:hidden"
+          className="flex items-center gap-1 px-3 py-3 border-b border-hair text-sm uppercase tracking-wide md:hidden"
         >
-          <ChevronLeft size={14} /> Back
+          <ChevronLeft size={18} /> Back
         </button>
         <NoteEditor
           note={activeNote}
+          allTags={tags}
+          colorOf={colorOf}
+          onCreateTag={createTag}
           onChange={updateNote}
           onTogglePin={togglePin}
-          onArchive={(id) => {
-            updateNote(id, { archived: true })
+          onToggleDone={toggleDone}
+          onArchive={(id, archived) => {
+            updateNote(id, { archived })
+            setActiveId(null)
             setMobileView('list')
           }}
           onDelete={(id) => {
@@ -190,6 +327,8 @@ export default function App() {
             setActiveId(null)
             setMobileView('list')
           }}
+          onRestore={handleRestore}
+          onHardDelete={handleHardDelete}
         />
       </div>
     </div>

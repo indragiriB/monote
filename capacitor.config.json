@@ -1,0 +1,8 @@
+{
+  "appId": "com.indra.monote",
+  "appName": "monote",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
