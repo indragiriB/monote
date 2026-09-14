@@ -13,7 +13,8 @@ monote/
 ├── package.json
 ├── .env.example
 ├── public/
-│   └── .nojekyll                # so GitHub Pages doesn't run Jekyll over dist/
+│   ├── .nojekyll                # so GitHub Pages doesn't run Jekyll over dist/
+│   └── icons/                   # PWA icons (192/512/512-maskable), generated flat B&W marks
 ├── src/
 │   ├── main.jsx                 # React root, React Query provider
 │   ├── App.jsx                  # Layout, routing between filters, auth gate
@@ -98,6 +99,32 @@ deploy` just updates that same branch.
 `public/.nojekyll` is already included so GitHub Pages doesn't try to
 run Jekyll over the build output (which can otherwise silently drop
 folders whose names start with an underscore).
+
+## Installing as a desktop app (Linux/Arch, or any Chromium browser)
+The web build is a proper installable PWA (`vite-plugin-pwa`, configured
+in `vite.config.js`) — no packaging, no AUR package needed. Once you have
+it running in a Chromium-based browser (Chromium, Google Chrome, Brave,
+Vivaldi, Microsoft Edge — all readily available on Arch via `pacman`/AUR),
+"installing" it just makes a normal desktop app out of the same web app:
+
+1. Run it locally (`npm run dev`, or `npm run build && npm run preview`)
+   or open the GitHub Pages URL from the section above.
+2. In the browser's address bar, click the **install icon** (a monitor
+   with a ⊕, at the right edge of the address bar) — or open the
+   browser's ⋮ menu → **Install monote…** / **Apps → Install this site as
+   an app**.
+3. It installs like any other app: shows up in your app launcher (Rofi,
+   GNOME/KDE menu, etc.), runs in its own window with no browser
+   chrome/tabs, and gets its own taskbar/dock icon (from the icons
+   generated in `public/icons/`).
+
+Firefox doesn't support PWA installation on desktop, so use a
+Chromium-based browser for this. The installed app still talks to the
+same Supabase backend and stays in sync with the Android build and any
+other browser tab — it's the same app, just launched without a browser
+around it. Note that a locally-run `npm run dev`/`preview` instance only
+installs and keeps running while that local server is up; the GitHub
+Pages URL is what makes it launchable independent of your dev server.
 
 ## Design notes
 - Pure monochrome base palette (`tailwind.config.js` → `colors.ink`); tags
