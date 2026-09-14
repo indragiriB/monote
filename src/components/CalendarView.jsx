@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, ListChecks, Pin, CheckCircle2 } from 'lucide-react'
 import { getDeadlinesInRange } from '../lib/noteQueries'
 import { toDayKey, isOverdue, isDeadlineNear } from '../lib/dates'
 
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-function buildMonthGrid(year, month) {
-  const firstDay = new Date(year, month, 1)
-  const startWeekday = firstDay.getDay()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells = []
-  for (let i = 0; i < startWeekday; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d))
-  return cells
+function daysInMonth(year, month) {
+  const count = new Date(year, month + 1, 0).getDate()
+  return Array.from({ length: count }, (_, i) => new Date(year, month, i + 1))
 }
 
-export default function CalendarView({ onSelectDay }) {
+/**
+ * Google-Calendar-style vertical agenda: every day of the month gets its
+ * own row (not a compact month grid), you scroll down through them, and
+ * each row lets you add an "event" — which here is just a regular note or
+ * a checklist note, both seeded with that day as their deadline.
+ */
+export default function CalendarView({ onSelectDay, onCreateNote, onOpenNote }) {
   const [cursor, setCursor] = useState(() => {
     const n = new Date()
     return new Date(n.getFullYear(), n.getMonth(), 1)
@@ -34,6 +35,9 @@ export default function CalendarView({ onSelectDay }) {
         if (!map[key]) map[key] = []
         map[key].push(n)
       })
+      Object.values(map).forEach((list) =>
+        list.sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
+      )
       setByDay(map)
     })
     return () => {
@@ -41,75 +45,121 @@ export default function CalendarView({ onSelectDay }) {
     }
   }, [cursor])
 
-  const cells = buildMonthGrid(cursor.getFullYear(), cursor.getMonth())
+  const days = daysInMonth(cursor.getFullYear(), cursor.getMonth())
   const todayKey = toDayKey(new Date())
 
+  async function addEvent(date, kind) {
+    const deadline = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      9,
+      0
+    ).toISOString()
+    const note =
+      kind === 'checklist'
+        ? await onCreateNote({ title: 'Checklist', content: '- [ ] ', deadline })
+        : await onCreateNote({ deadline })
+    onOpenNote(note.id)
+  }
+
   return (
-    <div className="flex-1 overflow-y-auto p-3">
-      <div className="flex items-center justify-between mb-3">
+    <div className="flex-1 overflow-y-auto">
+      <div className="sticky top-0 z-10 flex items-center justify-between p-3 border-b border-hair bg-ink-1000 dark:bg-ink-0">
         <button
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-          className="p-1.5 border border-hair"
+          className="p-2 md:p-1.5 border border-hair"
           aria-label="Previous month"
         >
-          <ChevronLeft size={14} />
+          <ChevronLeft size={18} className="md:w-3.5 md:h-3.5" />
         </button>
-        <span className="text-xs font-bold uppercase tracking-widest">
+        <span className="text-sm md:text-xs font-bold uppercase tracking-widest">
           {cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
         </span>
         <button
           onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-          className="p-1.5 border border-hair"
+          className="p-2 md:p-1.5 border border-hair"
           aria-label="Next month"
         >
-          <ChevronRight size={14} />
+          <ChevronRight size={18} className="md:w-3.5 md:h-3.5" />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center mb-1">
-        {WEEKDAYS.map((w) => (
-          <span key={w} className="text-[9px] text-ink-500">
-            {w[0]}
-          </span>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7 gap-1">
-        {cells.map((date, i) => {
-          if (!date) return <span key={i} />
+      <div className="flex flex-col">
+        {days.map((date) => {
           const key = toDayKey(date)
           const notesForDay = byDay[key] || []
-          const hasOverdue = notesForDay.some((n) => !n.done && isOverdue(n.deadline))
-          const hasNear = notesForDay.some((n) => !n.done && isDeadlineNear(n.deadline))
           const isToday = key === todayKey
 
           return (
-            <button
-              key={i}
-              onClick={() => onSelectDay(key)}
-              className={`flex flex-col items-center gap-0.5 py-2 border text-[11px] hover:bg-ink-950 dark:hover:bg-ink-100 ${
-                isToday ? 'border-ink-400' : 'border-transparent'
-              }`}
-            >
-              {date.getDate()}
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  notesForDay.length === 0
-                    ? 'bg-transparent'
-                    : hasOverdue || hasNear
-                      ? 'bg-red-500'
-                      : 'bg-ink-400'
-                }`}
-              />
-            </button>
+            <div key={key} className="border-b border-hair px-3 py-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <button
+                  onClick={() => onSelectDay(key)}
+                  className={`text-sm md:text-xs uppercase tracking-wide text-left hover:underline ${
+                    isToday ? 'font-bold' : 'text-ink-500'
+                  }`}
+                >
+                  {WEEKDAYS[date.getDay()].slice(0, 3)}, {date.getDate()}
+                  {isToday && <span className="ml-2 text-[10px] normal-case">Today</span>}
+                </button>
+                <div className="flex gap-1 shrink-0">
+                  <button
+                    onClick={() => addEvent(date, 'note')}
+                    className="flex items-center gap-1 border border-hair px-2 py-1.5 md:py-1 text-xs md:text-[10px] uppercase tracking-wide hover:bg-ink-950 dark:hover:bg-ink-100"
+                  >
+                    <Plus size={13} className="md:w-[11px] md:h-[11px]" /> Note
+                  </button>
+                  <button
+                    onClick={() => addEvent(date, 'checklist')}
+                    className="flex items-center gap-1 border border-hair px-2 py-1.5 md:py-1 text-xs md:text-[10px] uppercase tracking-wide hover:bg-ink-950 dark:hover:bg-ink-100"
+                  >
+                    <ListChecks size={13} className="md:w-[11px] md:h-[11px]" /> Checklist
+                  </button>
+                </div>
+              </div>
+
+              {notesForDay.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {notesForDay.map((note) => {
+                    const near = !note.done && isDeadlineNear(note.deadline)
+                    return (
+                      <button
+                        key={note.id}
+                        onClick={() => onOpenNote(note.id)}
+                        className={`text-left px-3 py-2 border text-sm md:text-xs ${
+                          note.done
+                            ? 'bg-green-50 dark:bg-green-950/40 border-green-300 dark:border-green-800'
+                            : near
+                              ? 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800'
+                              : 'border-hair hover:bg-ink-950 dark:hover:bg-ink-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          {note.done && (
+                            <CheckCircle2 size={12} className="text-green-600 dark:text-green-400 shrink-0" />
+                          )}
+                          {note.pinned && <Pin size={12} className="shrink-0" />}
+                          <span className={`truncate font-medium ${note.done ? 'line-through text-ink-500' : ''}`}>
+                            {note.title || 'Untitled'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-ink-500">
+                          {new Date(note.deadline).toLocaleTimeString(undefined, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          {isOverdue(note.deadline) && !note.done && ' · Overdue'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )
         })}
       </div>
-
-      <p className="mt-4 text-[10px] text-ink-500">
-        Titik <span className="text-red-500">merah</span> = deadline sudah lewat atau kurang dari
-        24 jam lagi.
-      </p>
     </div>
   )
 }

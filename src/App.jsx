@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Menu, ChevronLeft } from 'lucide-react'
+import { App as CapacitorApp } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
 import { supabase } from './lib/supabaseClient'
 import { db } from './lib/localDb'
 import { useNotes } from './hooks/useNotes'
@@ -56,7 +58,7 @@ export default function App() {
 
   const userId = session?.user?.id
 
-  const { tags, createTag, colorOf } = useTags(userId)
+  const { tags, createTag, updateTag, deleteTag, colorOf } = useTags(userId)
 
   const {
     notes,
@@ -178,12 +180,33 @@ export default function App() {
     }
   }
 
-  // Intent used by the Android widget's "Create Note" shortcut
-  // (see docs/android-widget.md) — the widget deep-links to /?action=create.
+  // Deep links from the Android widget (monote://create, monote://open/<id>)
+  // — handled through Capacitor's App plugin, not window.location.search:
+  // the WebView always loads the same capacitor://localhost/index.html
+  // regardless of what custom-scheme intent launched/resumed the activity,
+  // so a query-string check on the page URL never actually sees these.
+  // `getLaunchUrl` covers a cold start, `appUrlOpen` covers the app already
+  // being open (Android just resumes it and fires onNewIntent natively).
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('action') === 'create' && session) {
-      handleCreateNote()
+    if (!Capacitor.isNativePlatform() || !session) return
+
+    function handleUrl(url) {
+      if (!url) return
+      if (url.includes('://create')) {
+        handleCreateNote()
+      } else if (url.includes('://open/')) {
+        const id = url.split('://open/')[1]
+        if (id) {
+          setActiveId(id)
+          setMobileView('editor')
+        }
+      }
+    }
+
+    CapacitorApp.getLaunchUrl().then((res) => handleUrl(res?.url))
+    const listenerPromise = CapacitorApp.addListener('appUrlOpen', (data) => handleUrl(data.url))
+    return () => {
+      listenerPromise.then((l) => l.remove())
     }
   }, [session]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -276,9 +299,18 @@ export default function App() {
         )}
 
         {showTagOverview ? (
-          <TagOverview tags={tags} onSelectTag={handleSelectTagFromOverview} />
+          <TagOverview
+            tags={tags}
+            onSelectTag={handleSelectTagFromOverview}
+            onUpdateTag={updateTag}
+            onDeleteTag={deleteTag}
+          />
         ) : showCalendarOverview ? (
-          <CalendarView onSelectDay={handleSelectDay} />
+          <CalendarView
+            onSelectDay={handleSelectDay}
+            onCreateNote={createNote}
+            onOpenNote={handleSelectNote}
+          />
         ) : (
           <>
             <SearchBar value={search} onChange={setSearch} view={view} onViewChange={setView} />
@@ -314,6 +346,7 @@ export default function App() {
           allTags={tags}
           colorOf={colorOf}
           onCreateTag={createTag}
+          onDeleteTag={deleteTag}
           onChange={updateNote}
           onTogglePin={togglePin}
           onToggleDone={toggleDone}

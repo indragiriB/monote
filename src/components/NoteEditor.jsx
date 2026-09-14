@@ -1,16 +1,34 @@
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Pin, Archive, ArchiveRestore, Trash2, Eye, Edit3, RotateCcw, X, CheckCircle2, Circle } from 'lucide-react'
 import TagBadge from './TagBadge'
 import TagPicker from './TagPicker'
 import DeadlinePicker from './DeadlinePicker'
 import { formatFullTimestamp } from '../lib/dates'
 
+// Flips a single `- [ ]` / `- [x]` line in the raw Markdown source, used to
+// make checklist items in Preview mode actually clickable instead of just
+// rendered as static (disabled) checkboxes.
+function toggleChecklistLine(source, lineNumber) {
+  if (!lineNumber) return source
+  const lines = source.split('\n')
+  const idx = lineNumber - 1
+  if (idx < 0 || idx >= lines.length) return source
+  if (/\[ \]/.test(lines[idx])) {
+    lines[idx] = lines[idx].replace('[ ]', '[x]')
+  } else if (/\[[xX]\]/.test(lines[idx])) {
+    lines[idx] = lines[idx].replace(/\[[xX]\]/, '[ ]')
+  }
+  return lines.join('\n')
+}
+
 export default function NoteEditor({
   note,
   allTags,
   colorOf,
   onCreateTag,
+  onDeleteTag,
   onChange,
   onTogglePin,
   onToggleDone,
@@ -165,6 +183,7 @@ export default function NoteEditor({
           selectedTags={note.tags || []}
           onToggle={handleToggleTag}
           onCreateTag={onCreateTag}
+          onDeleteTag={onDeleteTag}
         />
 
         {note.deadline && !note.trashed && (
@@ -187,7 +206,37 @@ export default function NoteEditor({
       <div className="flex-1 overflow-y-auto p-4">
         {preview ? (
           <div className="md-preview">
-            <ReactMarkdown>{content || '*Nothing to preview.*'}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                li: ({ node, children, ...props }) => {
+                  const checked = node.checked
+                  if (checked === null || checked === undefined) {
+                    return <li {...props}>{children}</li>
+                  }
+                  // remark-gfm renders its own disabled checkbox as the
+                  // first child — drop it so ours is the only one shown.
+                  const rest = Array.isArray(children)
+                    ? children.filter((c) => c?.type !== 'input')
+                    : children
+                  return (
+                    <li {...props} className="flex items-start gap-2 list-none -ml-5">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() =>
+                          setContent((c) => toggleChecklistLine(c, node.position?.start?.line))
+                        }
+                        className="mt-1 shrink-0"
+                      />
+                      <span className={checked ? 'line-through text-ink-500' : ''}>{rest}</span>
+                    </li>
+                  )
+                },
+              }}
+            >
+              {content || '*Nothing to preview.*'}
+            </ReactMarkdown>
           </div>
         ) : (
           <textarea

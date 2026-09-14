@@ -1,4 +1,8 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+// Compose compiler plugin — required by Kotlin 2.0+ to compile the
+// @Composable-style code that Jetpack Glance's `provideContent { }` uses.
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 
 android {
     namespace = "com.indra.monote"
@@ -22,6 +26,16 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    // Kotlin/Java need to agree on the same JVM target, or Gradle fails
+    // with "Inconsistent JVM-target compatibility" — capacitor.build.gradle
+    // (applied below) already pins Java to 17, so Kotlin matches it here.
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 repositories {
@@ -40,6 +54,10 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+
+    // Home screen widget (Jetpack Glance) — see docs/android-widget.md
+    implementation "androidx.glance:glance-appwidget:1.1.1"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1"
 }
 
 apply from: 'capacitor.build.gradle'

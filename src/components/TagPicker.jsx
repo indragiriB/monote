@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Check } from 'lucide-react'
+import { Plus, Check, Trash2 } from 'lucide-react'
 import { TAG_PALETTE, nextTagColor } from '../lib/tagColors'
 
-export default function TagPicker({ allTags, selectedTags = [], onToggle, onCreateTag }) {
+export default function TagPicker({ allTags, selectedTags = [], onToggle, onCreateTag, onDeleteTag }) {
   const [open, setOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
@@ -64,21 +64,41 @@ export default function TagPicker({ allTags, selectedTags = [], onToggle, onCrea
             {allTags.map((t) => {
               const active = selectedTags.includes(t.name)
               return (
-                <button
+                // A <div>, not a <button> — the delete action below needs
+                // its own <button>, and a button can't validly nest one.
+                <div
                   key={t.id}
-                  type="button"
-                  onClick={() => onToggle(t.name, !active)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-3 md:py-2 text-sm md:text-xs hover:bg-ink-950 dark:hover:bg-ink-100"
+                  className="w-full flex items-center gap-1 hover:bg-ink-950 dark:hover:bg-ink-100"
                 >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="w-2.5 h-2.5 md:w-2 md:h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: t.color }}
-                    />
-                    {t.name}
-                  </span>
-                  {active && <Check size={16} className="md:w-3 md:h-3" />}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => onToggle(t.name, !active)}
+                    className="flex-1 flex items-center justify-between gap-2 px-3 py-3 md:py-2 text-sm md:text-xs min-w-0"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-2.5 h-2.5 md:w-2 md:h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: t.color }}
+                      />
+                      <span className="truncate">{t.name}</span>
+                    </span>
+                    {active && <Check size={16} className="md:w-3 md:h-3 shrink-0" />}
+                  </button>
+                  {onDeleteTag && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Hapus tag "${t.name}"? Tag ini akan dilepas dari semua note.`)) {
+                          onDeleteTag(t.id, t.name)
+                        }
+                      }}
+                      className="p-2 mr-1 text-ink-500 hover:text-red-600 dark:hover:text-red-400 shrink-0"
+                      aria-label={`Hapus tag ${t.name}`}
+                    >
+                      <Trash2 size={14} className="md:w-3 md:h-3" />
+                    </button>
+                  )}
+                </div>
               )
             })}
 
