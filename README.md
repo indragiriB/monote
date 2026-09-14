@@ -12,6 +12,8 @@ monote/
 ├── postcss.config.js
 ├── package.json
 ├── .env.example
+├── public/
+│   └── .nojekyll                # so GitHub Pages doesn't run Jekyll over dist/
 ├── src/
 │   ├── main.jsx                 # React root, React Query provider
 │   ├── App.jsx                  # Layout, routing between filters, auth gate
@@ -61,6 +63,41 @@ npm run dev               # web dev server
 
 For the Android build and widget, see `docs/capacitor-setup.md` and
 `docs/android-widget.md`.
+
+## Deploying to GitHub Pages
+The web build is a static SPA, so it can be hosted for free on GitHub
+Pages as a browser-accessible companion to the Android app (same Supabase
+backend either way).
+
+```bash
+npm install         # pulls in cross-env + gh-pages, added for this
+npm run deploy       # predeploy builds with the right base path, then pushes dist/ to the gh-pages branch
+```
+
+Before running it:
+1. **Rename the base path if your repo isn't named `monote`.** GitHub
+   Pages project sites are served at
+   `https://<your-username>.github.io/<repo-name>/` — the `predeploy`
+   script in `package.json` sets `VITE_BASE_PATH=/monote/` to match that
+   subpath. If your GitHub repo has a different name, change that value to
+   `/<your-repo-name>/`.
+2. **Push the project to GitHub first** (`git init`, commit, `git remote
+   add origin ...`, `git push`) — `gh-pages -d dist` needs an existing
+   `origin` remote to push the built `dist/` folder to a `gh-pages` branch.
+3. **`.env` must be filled in before deploying** — Vite bakes
+   `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` into the built JS at build
+   time, not at runtime, so `npm run deploy` needs a working `.env` present
+   locally (same one from `## Setup` above).
+
+After the first successful `npm run deploy`, go to the repo's **Settings →
+Pages** and, if it isn't already set, choose **Deploy from a branch** →
+branch `gh-pages` → folder `/ (root)`. The site then goes live at
+`https://<your-username>.github.io/<repo-name>/`; every later `npm run
+deploy` just updates that same branch.
+
+`public/.nojekyll` is already included so GitHub Pages doesn't try to
+run Jekyll over the build output (which can otherwise silently drop
+folders whose names start with an underscore).
 
 ## Design notes
 - Pure monochrome base palette (`tailwind.config.js` → `colors.ink`); tags
