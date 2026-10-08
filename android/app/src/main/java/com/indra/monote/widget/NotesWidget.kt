@@ -14,10 +14,10 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Arrangement
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
-import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
@@ -25,9 +25,21 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 
+/**
+ * Styled to echo the app's "All Notes" list (NoteList.jsx): a header row
+ * with a "+" add button, then flat rows separated by hairline dividers.
+ * Re-implemented with Glance's own layout primitives since the widget
+ * can't share React/Tailwind code with the web app — Glance has no CSS,
+ * no border modifier, and no dark-mode-aware color tokens wired up here,
+ * so this is a deliberately simplified, always-light-background version
+ * of the same shape rather than a pixel-perfect port.
+ */
 class NotesWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val notes = WidgetDataStore.load(context)
+        // Same ordering spirit as "All Notes": pinned notes float to the
+        // top, the rest keep the most-recent-first order they arrive in
+        // from syncWidget() on the JS side.
         val pinned = notes.filter { it.pinned }
         val rest = notes.filterNot { it.pinned }
         val visible = (pinned + rest).take(6)
@@ -38,30 +50,27 @@ class NotesWidget : GlanceAppWidget() {
                     .fillMaxWidth()
                     .background(Color.White)
             ) {
-                // DIPERBAIKI: Hapus horizontalArrangement dan gunakan Spacer
+                // Header: title + "+ New", mirroring the app's sidebar
+                // "New Note" button. SpaceBetween pushes them to opposite
+                // ends without needing a weight modifier.
                 Row(
                     modifier = GlanceModifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically // DIPERBAIKI: Penulisan Alignment
+                    verticalAlignment = Alignment.Vertical.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
                         text = "ALL NOTES",
                         style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     )
-
-                    // Spacer ini berfungsi seperti SpaceBetween, mendorong konten ke ujung kiri dan kanan
-                    Spacer(modifier = GlanceModifier.defaultWeight())
-
                     Box(
                         modifier = GlanceModifier
                             .background(Color(0xFFEDEDED))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                             .clickable(
                                 actionStartActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse("monote://create")).apply {
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK // DIPERBAIKI: Wajib untuk widget
-                                    }
+                                    Intent(Intent.ACTION_VIEW, Uri.parse("monote://create"))
                                 )
                             )
                     ) {
@@ -72,6 +81,8 @@ class NotesWidget : GlanceAppWidget() {
                     }
                 }
 
+                // Divider — Box always needs a content lambda in Glance,
+                // even an empty one, or it fails to compile.
                 Box(
                     modifier = GlanceModifier
                         .fillMaxWidth()
@@ -93,23 +104,17 @@ class NotesWidget : GlanceAppWidget() {
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
                                 .clickable(
                                     actionStartActivity(
-                                        Intent(Intent.ACTION_VIEW, Uri.parse("monote://open/${note.id}")).apply {
-                                            flags = Intent.FLAG_ACTIVITY_NEW_TASK // DIPERBAIKI: Wajib untuk widget
-                                        }
+                                        Intent(Intent.ACTION_VIEW, Uri.parse("monote://open/${note.id}"))
                                     )
                                 )
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) { // DIPERBAIKI: Penulisan Alignment
+                            Row(verticalAlignment = Alignment.Vertical.CenterVertically) {
                                 if (note.pinned) {
-                                    Text(
-                                        text = "\u2022 ",
-                                        style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    )
+                                    Text(text = "\u2022 ", style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 13.sp))
                                 }
                                 Text(
                                     text = note.title,
-                                    // DIPERBAIKI: Hapus FontWeight.Medium karena tidak didukung Glance
-                                    style = TextStyle(fontSize = 13.sp),
+                                    style = TextStyle(fontWeight = FontWeight.Medium, fontSize = 13.sp),
                                     maxLines = 1
                                 )
                             }
@@ -121,7 +126,6 @@ class NotesWidget : GlanceAppWidget() {
                                 )
                             }
                         }
-
                         if (index != visible.lastIndex) {
                             Box(
                                 modifier = GlanceModifier

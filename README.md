@@ -43,7 +43,8 @@ monote/
 │       ├── sync.js              # Push outbox, pull remote, Realtime sub (notes + tags)
 │       └── widgetBridge.js      # (Android only) mirrors notes to widget
 ├── supabase/
-│   └── schema.sql               # notes + tags tables, RLS policies, Realtime
+│   ├── schema.sql               # notes + tags tables, RLS policies, Realtime
+│   └── functions/ai-complete/   # Edge Function: Gemini proxy for the AI button
 ├── docs/
 │   ├── capacitor-setup.md       # Capacitor init, build, deep links
 │   └── android-widget.md        # Jetpack Glance widget architecture
@@ -125,6 +126,38 @@ other browser tab — it's the same app, just launched without a browser
 around it. Note that a locally-run `npm run dev`/`preview` instance only
 installs and keeps running while that local server is up; the GitHub
 Pages URL is what makes it launchable independent of your dev server.
+
+## AI completion (Gemini)
+The **AI** button in the note editor sends the current title, tags and text
+to Gemini, and appends whatever it writes to the end of the note (with an
+Undo link right under the toolbar). It works for plain notes, short titles
+that need a full body, and checklists (it keeps adding `- [ ]` items).
+
+The call goes through a Supabase Edge Function
+(`supabase/functions/ai-complete`), **not** straight from the app — an API
+key in a Vite `.env` gets baked into the public JS bundle, which is
+effectively published the moment you `npm run deploy` to GitHub Pages. The
+function keeps the key as a server-side secret and only answers logged-in
+users.
+
+One-time setup:
+```bash
+# 1. Create a key at https://aistudio.google.com/apikey
+# 2. From the project root:
+npx supabase login
+npx supabase link --project-ref <your-project-ref>   # Project Settings -> General
+npx supabase secrets set GEMINI_API_KEY=<your-key>
+npx supabase functions deploy ai-complete
+```
+Optional: `npx supabase secrets set GEMINI_MODEL=<model-name>` switches the
+model without touching code (default is the `gemini-flash-latest` alias, which
+follows Google's newest Flash model). Google retires specific model names
+fairly often — `gemini-2.5-flash` now returns a 404 — so if the AI button ever
+reports "model tidak ditemukan", that one command is the whole fix.
+
+AI needs a network connection (it shows an inline error when offline), and
+free-tier Gemini keys have rate limits, so very rapid repeated clicks can
+come back with a "menolak request" error — wait a few seconds and retry.
 
 ## Design notes
 - Pure monochrome base palette (`tailwind.config.js` → `colors.ink`); tags

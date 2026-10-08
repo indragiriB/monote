@@ -334,7 +334,7 @@ export default function App() {
       </div>
 
       {/* Editor column */}
-      <div className={`flex-1 min-w-0 flex-col ${mobileView === 'list' ? 'hidden' : 'flex'} md:flex`}>
+      <div className={`flex-1 min-w-0 min-h-0 flex-col ${mobileView === 'list' ? 'hidden' : 'flex'} md:flex`}>
         <button
           onClick={() => setMobileView('list')}
           className="flex items-center gap-1 px-3 py-3 border-b border-hair text-sm uppercase tracking-wide md:hidden"
