@@ -2,16 +2,21 @@ import { supabase } from './supabaseClient'
 
 /**
  * Asks the `ai-complete` Supabase Edge Function (which holds the Gemini API
- * key server-side) to continue/fill in the note. Resolves with the text that
- * should be appended; throws an Error with a human-readable message.
+ * key server-side, retries when Gemini is busy, and continues answers that
+ * hit the token limit) to work on the note.
+ *
+ * mode 'append'  -> text to add below the note
+ * mode 'rewrite' -> the whole note rewritten, complete and with examples
+ *
+ * Resolves with { text, truncated }; throws an Error with a readable message.
  */
-export async function completeNote({ title, content, tags }) {
+export async function completeNote({ title, content, tags, mode = 'append' }) {
   if (!navigator.onLine) {
     throw new Error('Fitur AI butuh koneksi internet.')
   }
 
   const { data, error } = await supabase.functions.invoke('ai-complete', {
-    body: { title, content, tags },
+    body: { title, content, tags, mode },
   })
 
   if (error) {
@@ -29,5 +34,5 @@ export async function completeNote({ title, content, tags }) {
 
   if (data?.error) throw new Error(data.error)
   if (!data?.text) throw new Error('AI tidak mengembalikan teks.')
-  return data.text
+  return { text: data.text, truncated: Boolean(data.truncated) }
 }

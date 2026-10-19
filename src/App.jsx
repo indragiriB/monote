@@ -262,7 +262,7 @@ export default function App() {
 
       {/* Note list / tag overview / calendar column */}
       <div
-        className={`w-full md:w-80 shrink-0 border-hair flex-col
+        className={`w-full md:w-80 min-w-0 shrink-0 border-hair flex-col
           ${mobileView === 'editor' ? 'hidden' : 'flex'} md:flex md:border-r`}
       >
         <div className="flex items-center gap-2 p-3 border-b border-hair md:hidden">

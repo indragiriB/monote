@@ -42,6 +42,7 @@ monote/
 │       ├── dates.js             # Timestamp/deadline formatting (relative, full, overdue/near checks)
 │       ├── sync.js              # Push outbox, pull remote, Realtime sub (notes + tags)
 │       └── widgetBridge.js      # (Android only) mirrors notes to widget
+├── .github/workflows/deploy.yml  # auto-deploy to GitHub Pages on push
 ├── supabase/
 │   ├── schema.sql               # notes + tags tables, RLS policies, Realtime
 │   └── functions/ai-complete/   # Edge Function: Gemini proxy for the AI button
@@ -101,6 +102,31 @@ deploy` just updates that same branch.
 run Jekyll over the build output (which can otherwise silently drop
 folders whose names start with an underscore).
 
+### Auto-deploy with GitHub Actions
+Instead of running `npm run deploy` by hand, `.github/workflows/deploy.yml`
+builds and publishes the web app on every push to `main`. Setup, once:
+
+1. Repo **Settings -> Pages -> Build and deployment -> Source: GitHub Actions**
+   (this replaces the `gh-pages` branch that `npm run deploy` used, so pick one
+   of the two ways, not both).
+2. Repo **Settings -> Secrets and variables -> Actions -> New repository
+   secret**: add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` with the same
+   values as your local `.env` (`.env` is not in git, so the build server needs
+   its own copy). The anon key is meant to be public; your data is protected by
+   the row level security policies. Never put the Gemini key here.
+
+After that: `git push` -> the **Actions** tab shows the build -> a minute later
+the site is updated. The base path is taken from the repo name automatically.
+
+What a push does and does not update:
+
+| Target | Updated by `git push`? | How to update it |
+|---|---|---|
+| Web app / installed desktop PWA | Yes, automatically | The PWA refreshes itself the next time it is opened |
+| Android app (APK) | No | `npm run build`, `npx cap sync android`, then Run in Android Studio |
+| `ai-complete` Edge Function | No | `npx supabase functions deploy ai-complete` |
+| Database schema changes | No | Run the SQL in the Supabase SQL editor |
+
 ## Installing as a desktop app (Linux/Arch, or any Chromium browser)
 The web build is a proper installable PWA (`vite-plugin-pwa`, configured
 in `vite.config.js`) — no packaging, no AUR package needed. Once you have
@@ -128,17 +154,28 @@ installs and keeps running while that local server is up; the GitHub
 Pages URL is what makes it launchable independent of your dev server.
 
 ## AI completion (Gemini)
-The **AI** button in the note editor sends the current title, tags and text
-to Gemini, and appends whatever it writes to the end of the note (with an
-Undo link right under the toolbar). It works for plain notes, short titles
-that need a full body, and checklists (it keeps adding `- [ ]` items).
+The **AI** button in the note editor opens a small menu with two modes:
+
+- **Lengkapi catatan**: adds what is missing below your text (every topic of
+  an outline gets covered, one by one).
+- **Tulis ulang lengkap + contoh**: rewrites the whole note, keeping all your
+  information, finishing thin topics and giving **every explanation a
+  concrete example**. The result replaces the note, with an **Undo** link
+  right under the toolbar (it disappears once you edit the result).
+
+Both modes work from just a title, continue checklists, and answer in the
+language of your note. Diagrams are written as text diagrams in code blocks,
+because the preview cannot render Mermaid.
 
 The call goes through a Supabase Edge Function
-(`supabase/functions/ai-complete`), **not** straight from the app — an API
+(`supabase/functions/ai-complete`), **not** straight from the app: an API
 key in a Vite `.env` gets baked into the public JS bundle, which is
-effectively published the moment you `npm run deploy` to GitHub Pages. The
-function keeps the key as a server-side secret and only answers logged-in
-users.
+effectively published the moment you deploy to GitHub Pages. The function
+keeps the key as a server-side secret and only answers logged-in users.
+
+Gemini is often busy, so the function is built to ride that out: it retries
+once, falls over to a backup model, skips models that no longer exist, and
+continues an answer that stops at the token limit instead of cutting it off.
 
 One-time setup:
 ```bash
@@ -149,15 +186,21 @@ npx supabase link --project-ref <your-project-ref>   # Project Settings -> Gener
 npx supabase secrets set GEMINI_API_KEY=<your-key>
 npx supabase functions deploy ai-complete
 ```
-Optional: `npx supabase secrets set GEMINI_MODEL=<model-name>` switches the
-model without touching code (default is the `gemini-flash-latest` alias, which
-follows Google's newest Flash model). Google retires specific model names
-fairly often — `gemini-2.5-flash` now returns a 404 — so if the AI button ever
-reports "model tidak ditemukan", that one command is the whole fix.
+Optional secrets:
+- `GEMINI_MODEL`: main model (default `gemini-flash-latest`, Google's alias for
+  the newest Flash). Google retires specific model names fairly often
+  (`gemini-2.5-flash` now returns 404), so if the AI button ever reports
+  "model tidak ditemukan", this one command is the fix.
+- `GEMINI_FALLBACK_MODELS`: comma separated backups, tried when the main model
+  is overloaded (default `gemini-flash-lite-latest`).
 
-AI needs a network connection (it shows an inline error when offline), and
-free-tier Gemini keys have rate limits, so very rapid repeated clicks can
-come back with a "menolak request" error — wait a few seconds and retry.
+After changing `supabase/functions/ai-complete/index.ts`, redeploy with
+`npx supabase functions deploy ai-complete`. A `git push` does not update it.
+
+AI needs a network connection (it shows an inline error when offline). If the
+error says Gemini is full, wait about a minute. Free-tier keys are the first to
+be throttled when Gemini is busy; enabling billing on the key's Google Cloud
+project makes it noticeably more reliable.
 
 ## Design notes
 - Pure monochrome base palette (`tailwind.config.js` → `colors.ink`); tags

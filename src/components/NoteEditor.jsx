@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Pin, Archive, ArchiveRestore, Trash2, Eye, Edit3, RotateCcw, X, CheckCircle2, Circle, Sparkles, Loader2, Undo2 } from 'lucide-react'
+import { Pin, Archive, ArchiveRestore, Trash2, Eye, Edit3, RotateCcw, X, CheckCircle2, Circle, Undo2 } from 'lucide-react'
 import TagBadge from './TagBadge'
 import TagPicker from './TagPicker'
 import DeadlinePicker from './DeadlinePicker'
 import { formatFullTimestamp } from '../lib/dates'
 import { completeNote } from '../lib/ai'
+import AiMenu from './AiMenu'
 
 // Flips a single `- [ ]` / `- [x]` line in the raw Markdown source, used to
 // make checklist items in Preview mode actually clickable instead of just
@@ -45,7 +46,8 @@ export default function NoteEditor({
   // AI completion (Gemini via the `ai-complete` Edge Function).
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState(null)
-  const [aiAdded, setAiAdded] = useState(null) // exact text AI appended, for Undo
+  // { previous, result, mode, truncated } for the last AI change, powers Undo
+  const [aiUndo, setAiUndo] = useState(null)
   // Refs so an in-flight AI request reads the *latest* content/note id when
   // it finishes, not whatever they were when the button was clicked.
   const contentRef = useRef(content)
@@ -59,7 +61,7 @@ export default function NoteEditor({
     setPreview(false)
     setAiLoading(false)
     setAiError(null)
-    setAiAdded(null)
+    setAiUndo(null)
   }, [note?.id])
 
   // Debounced autosave so every keystroke doesn't hit Dexie/outbox.
@@ -81,22 +83,39 @@ export default function NoteEditor({
     )
   }
 
-  async function handleAiComplete() {
+  async function handleAiRun(mode) {
     if (aiLoading) return
     const startedFor = note.id
+    const startContent = contentRef.current
     setAiLoading(true)
     setAiError(null)
-    setAiAdded(null)
+    setAiUndo(null)
     try {
-      const text = await completeNote({ title, content, tags: note.tags || [] })
-      // The user may have switched notes while we waited — don't paste
-      // this note's completion into a different one.
+      const { text, truncated } = await completeNote({
+        title,
+        content: startContent,
+        tags: note.tags || [],
+        mode,
+      })
+      // The user may have switched notes while we waited, so don't paste
+      // this note's result into a different one.
       if (noteIdRef.current !== startedFor) return
+
       const latest = contentRef.current
-      const separator = latest.trim() ? (latest.endsWith('\n') ? '\n' : '\n\n') : ''
-      const added = separator + text
-      setContent(latest + added)
-      setAiAdded(added)
+      let result
+      if (mode === 'rewrite') {
+        // A rewrite replaces everything, so refuse if the note changed
+        // while the AI was working rather than silently drop those edits.
+        if (latest !== startContent) {
+          throw new Error('Catatan berubah saat AI bekerja. Coba jalankan lagi.')
+        }
+        result = text
+      } else {
+        const separator = latest.trim() ? (latest.endsWith('\n') ? '\n' : '\n\n') : ''
+        result = latest + separator + text
+      }
+      setContent(result)
+      setAiUndo({ previous: latest, result, mode, truncated })
       setPreview(false)
     } catch (err) {
       if (noteIdRef.current === startedFor) setAiError(err.message || 'AI gagal, coba lagi.')
@@ -106,11 +125,9 @@ export default function NoteEditor({
   }
 
   function handleAiUndo() {
-    if (!aiAdded) return
-    // Only strip it if the text is still at the very end — if the user has
-    // typed after the AI text, leave their note alone rather than guess.
-    setContent((c) => (c.endsWith(aiAdded) ? c.slice(0, c.length - aiAdded.length) : c))
-    setAiAdded(null)
+    if (!aiUndo) return
+    setContent(aiUndo.previous)
+    setAiUndo(null)
   }
 
   function handleToggleTag(name, shouldAdd) {
@@ -162,19 +179,7 @@ export default function NoteEditor({
           </div>
         ) : (
           <div className="flex gap-1">
-            <button
-              onClick={handleAiComplete}
-              disabled={aiLoading}
-              className="flex items-center gap-1.5 px-3 py-3 md:px-2 md:py-2 border border-hair text-sm md:text-[11px] uppercase tracking-wide hover:bg-ink-0 hover:text-ink-1000 dark:hover:bg-ink-1000 dark:hover:text-ink-0 disabled:opacity-60"
-              aria-label="Lengkapi catatan dengan AI"
-            >
-              {aiLoading ? (
-                <Loader2 size={18} className="md:w-3.5 md:h-3.5 animate-spin" />
-              ) : (
-                <Sparkles size={18} className="md:w-3.5 md:h-3.5" />
-              )}
-              AI
-            </button>
+            <AiMenu loading={aiLoading} onPick={handleAiRun} />
             <button
               onClick={() => onToggleDone(note.id)}
               className={`p-3 md:p-2 border border-hair ${
@@ -263,19 +268,28 @@ export default function NoteEditor({
         />
       </div>
 
-      {(aiError || aiAdded) && (
-        <div className="px-4 pt-2 flex items-center gap-3 text-sm md:text-xs">
+      {(aiError || (aiUndo && content === aiUndo.result)) && (
+        <div className="px-4 pt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm md:text-xs">
           {aiError ? (
             <span className="text-red-600 dark:text-red-400">{aiError}</span>
           ) : (
             <>
-              <span className="text-ink-500">AI menambahkan teks ke catatan.</span>
+              <span className="text-ink-500">
+                {aiUndo.mode === 'rewrite'
+                  ? 'AI menulis ulang seluruh catatan.'
+                  : 'AI menambahkan teks ke catatan.'}
+              </span>
               <button
                 onClick={handleAiUndo}
                 className="flex items-center gap-1 underline hover:no-underline"
               >
                 <Undo2 size={14} /> Undo
               </button>
+              {aiUndo.truncated && (
+                <span className="text-red-600 dark:text-red-400 w-full">
+                  Hasil terlalu panjang dan terpotong. Pilih AI, Lengkapi catatan untuk melanjutkannya.
+                </span>
+              )}
             </>
           )}
         </div>
