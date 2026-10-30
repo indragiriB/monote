@@ -3,7 +3,36 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+  --dot-color: rgba(10, 10, 10, 0.16);
+  --dot-space: 18px;
+
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+
+  --glass-strong-bg: rgba(255, 255, 255, 0.78);
+  --glass-strong-border: rgba(255, 255, 255, 0.9);
+
+  --hair: rgba(10, 10, 10, 0.1);
+  --hair-soft: rgba(10, 10, 10, 0.06);
+}
+
+.dark {
+  color-scheme: dark;
+  --dot-color: rgba(255, 255, 255, 0.15);
+
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+  --glass-strong-bg: rgba(18, 18, 18, 0.8);
+  --glass-strong-border: rgba(255, 255, 255, 0.12);
+
+  --hair: rgba(255, 255, 255, 0.1);
+  --hair-soft: rgba(255, 255, 255, 0.06);
 }
 
 * {
@@ -16,13 +45,279 @@ body,
   height: 100%;
 }
 
-/* Thin 1px borders everywhere, never a shadow. */
-.border-hair {
-  border-width: 1px;
-  border-color: #e5e5e5;
+/* Nothing OS-style dotted canvas. The dots stay fixed while panels float
+   above them, which is what makes the glass surfaces read as glass. */
+body {
+  background-color: #f4f4f1;
+  background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1.5px);
+  background-size: var(--dot-space) var(--dot-space);
+  background-attachment: fixed;
+  -webkit-tap-highlight-color: transparent;
 }
-.dark .border-hair {
-  border-color: #222222;
+
+.dark body {
+  background-color: #000000;
+}
+
+/* Subtle coloured bloom behind the glass panels (transparent elsewhere so
+   the dotted canvas shows through). */
+.app-ambient {
+  background-image: radial-gradient(
+      560px circle at 95% 0%,
+      rgba(215, 25, 33, 0.12),
+      transparent 65%
+    ),
+    radial-gradient(640px circle at 0% 100%, rgba(120, 120, 120, 0.12), transparent 65%);
+}
+
+.dark .app-ambient {
+  background-image: radial-gradient(
+      560px circle at 95% 0%,
+      rgba(215, 25, 33, 0.18),
+      transparent 65%
+    ),
+    radial-gradient(640px circle at 0% 100%, rgba(255, 255, 255, 0.06), transparent 65%);
+}
+
+::selection {
+  background: #d71921;
+  color: #ffffff;
+}
+
+button,
+a,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #d71921;
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #d71921;
+  outline-offset: 4px;
+}
+
+/* Inputs inside a frosted shell already show a red ring on the shell —
+   don't draw a second outline around the bare field. */
+.glass-input input:focus-visible,
+input.glass-input:focus-visible {
+  outline: none;
+}
+
+@layer components {
+  /* Frosted floating panel — the base building block of the new look. */
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(28px) saturate(150%);
+    backdrop-filter: blur(28px) saturate(150%);
+    box-shadow: var(--glass-shadow);
+  }
+
+  /* The sidebar is the only element that slides. On phones it uses an
+     opaque-ish surface without backdrop-filter, so the drawer animation
+     stays on the compositor instead of re-blurring the page every frame.
+     Desktop keeps the full frosted glass. */
+  .sidebar-glass {
+    background: rgba(247, 247, 244, 0.94);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .dark .sidebar-glass {
+    background: rgba(12, 12, 12, 0.95);
+  }
+
+  @media (min-width: 768px) {
+    .sidebar-glass {
+      background: var(--glass-bg);
+      -webkit-backdrop-filter: blur(28px) saturate(150%);
+      backdrop-filter: blur(28px) saturate(150%);
+    }
+
+    .dark .sidebar-glass {
+      background: var(--glass-bg);
+    }
+  }
+
+  /* Denser glass for popovers/dialogs so text stays readable on top of
+     the dotted canvas. */
+  .glass-strong {
+    background: var(--glass-strong-bg);
+    border: 1px solid var(--glass-strong-border);
+    -webkit-backdrop-filter: blur(36px) saturate(170%);
+    backdrop-filter: blur(36px) saturate(170%);
+    box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .dark .glass-strong {
+    box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.95),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  /* Thin translucent hairline replaces the old hard 1px B&W border.
+     Only sets the colour — pair it with `border`, `border-b`, etc. */
+  .border-hair {
+    border-color: var(--hair);
+  }
+
+  .border-hair-soft {
+    border-color: var(--hair-soft);
+  }
+
+  /* Fine dot matrix used inside empty states and small accent surfaces. */
+  .dot-panel {
+    background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1.5px);
+    background-size: 12px 12px;
+  }
+
+  /* Dot-matrix type, borrowed from Nothing's Ndot display face. */
+  .dot-label {
+    font-family: 'Doto', 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .dot-display {
+    font-family: 'Doto', 'JetBrains Mono', ui-monospace, monospace;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+  }
+
+  /* Circular frosted icon button (toolbars, month arrows, close buttons). */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid var(--hair);
+    background: rgba(255, 255, 255, 0.45);
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+      color 0.15s ease, transform 0.15s ease;
+  }
+
+  .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(10, 10, 10, 0.18);
+  }
+
+  .icon-btn:active {
+    transform: scale(0.94);
+  }
+
+  .dark .icon-btn {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .dark .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .icon-btn-active {
+    background: #0a0a0a;
+    border-color: #0a0a0a;
+    color: #ffffff;
+  }
+
+  .icon-btn-active:hover {
+    background: #000000;
+    border-color: #000000;
+    color: #ffffff;
+  }
+
+  .dark .icon-btn-active,
+  .dark .icon-btn-active:hover {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #000000;
+  }
+
+  /* Frosted input shell. */
+  .glass-input {
+    border-radius: 16px;
+    border: 1px solid var(--hair);
+    background: rgba(255, 255, 255, 0.5);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .glass-input:focus,
+  .glass-input:focus-within {
+    background: rgba(255, 255, 255, 0.75);
+    border-color: rgba(215, 25, 33, 0.55);
+    box-shadow: 0 0 0 3px rgba(215, 25, 33, 0.12);
+  }
+
+  .dark .glass-input {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .dark .glass-input:focus,
+  .dark .glass-input:focus-within {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* Pill used for primary/back/confirm actions. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 9999px;
+    border: 1px solid var(--hair);
+    background: rgba(255, 255, 255, 0.45);
+    transition: background-color 0.15s ease, border-color 0.15s ease,
+      color 0.15s ease, transform 0.15s ease;
+  }
+
+  .pill:hover {
+    background: rgba(255, 255, 255, 0.8);
+  }
+
+  .pill:active {
+    transform: scale(0.98);
+  }
+
+  .dark .pill {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .dark .pill:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .pill-invert,
+  .dark .pill-invert {
+    background: #0a0a0a;
+    border-color: #0a0a0a;
+    color: #ffffff;
+  }
+
+  .pill-invert:hover,
+  .dark .pill-invert:hover {
+    background: #000000;
+    border-color: #000000;
+    color: #ffffff;
+  }
+
+  .dark .pill-invert,
+  .dark .pill-invert:hover {
+    background: #ffffff;
+    border-color: #ffffff;
+    color: #000000;
+  }
 }
 
 /* Scrollbars are hidden everywhere — every scrollable area (sidebar,
@@ -38,27 +333,93 @@ body,
   height: 0;
 }
 
-/* Markdown preview inside the editor — kept flat, no colored syntax. */
+/* Markdown preview inside the editor. */
+.md-preview {
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
 .md-preview h1,
 .md-preview h2,
 .md-preview h3 {
-  font-weight: 700;
-  margin: 0.75em 0 0.25em;
+  font-family: 'Doto', 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  margin: 1em 0 0.35em;
+}
+.md-preview h1 {
+  font-size: 1.7em;
+}
+.md-preview h2 {
+  font-size: 1.35em;
+}
+.md-preview h3 {
+  font-size: 1.15em;
 }
 .md-preview p {
+  margin: 0.55em 0;
+}
+.md-preview a {
+  color: #d71921;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.md-preview ul {
+  list-style: disc;
+  padding-left: 1.4em;
   margin: 0.5em 0;
-  line-height: 1.6;
+}
+.md-preview ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+  margin: 0.5em 0;
+}
+.md-preview blockquote {
+  border-left: 2px solid #d71921;
+  padding-left: 12px;
+  margin: 0.75em 0;
+  color: #777777;
+}
+.md-preview hr {
+  border-color: var(--hair);
+  margin: 1.25em 0;
 }
 .md-preview code {
-  background: #e5e5e5;
-  padding: 0 4px;
+  background: rgba(10, 10, 10, 0.06);
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  padding: 1px 6px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.88em;
 }
 .dark .md-preview code {
-  background: #222222;
+  background: rgba(255, 255, 255, 0.08);
 }
 .md-preview pre {
-  background: #111111;
+  background: rgba(10, 10, 10, 0.92);
   color: #f5f5f5;
-  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 14px 16px;
   overflow-x: auto;
+  margin: 0.75em 0;
+}
+.md-preview pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.md-preview input[type='checkbox'] {
+  accent-color: #d71921;
+}
+.md-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: 0.9em;
+}
+.md-preview th,
+.md-preview td {
+  border: 1px solid var(--hair);
+  padding: 6px 10px;
+  text-align: left;
 }

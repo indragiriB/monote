@@ -77,8 +77,10 @@ export default function NoteEditor({
 
   if (!note) {
     return (
-      <div className="flex-1 flex items-center justify-center text-ink-500 text-sm">
-        Select or create a note to start writing.
+      <div className="flex-1 flex items-center justify-center p-4 md:p-6">
+        <div className="dot-panel flex h-full min-h-[180px] w-full items-center justify-center rounded-[2rem] border border-hair px-6 text-center text-sm text-ink-500">
+          Select or create a note to start writing.
+        </div>
       </div>
     )
   }
@@ -144,18 +146,18 @@ export default function NoteEditor({
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <div className="flex items-center justify-between border-b border-hair p-3 gap-1 flex-wrap">
-        <div className="flex gap-1">
+      <div className="flex items-center justify-between border-b border-hair px-3 py-2.5 md:px-4 gap-1.5 flex-wrap bg-white/70 dark:bg-black/60 md:bg-white/30 md:dark:bg-white/[0.02] md:backdrop-blur-xl">
+        <div className="pill p-0.5">
           <button
             onClick={() => setPreview(false)}
-            className={`p-3 md:p-2 border border-hair ${!preview ? 'bg-ink-0 text-ink-1000 dark:bg-ink-1000 dark:text-ink-0' : ''}`}
+            className={`rounded-full p-3 md:p-2 transition-colors ${!preview ? 'pill-invert' : 'text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000'}`}
             aria-label="Edit mode"
           >
             <Edit3 size={18} className="md:w-3.5 md:h-3.5" />
           </button>
           <button
             onClick={() => setPreview(true)}
-            className={`p-3 md:p-2 border border-hair border-l-0 ${preview ? 'bg-ink-0 text-ink-1000 dark:bg-ink-1000 dark:text-ink-0' : ''}`}
+            className={`rounded-full p-3 md:p-2 transition-colors ${preview ? 'pill-invert' : 'text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000'}`}
             aria-label="Preview mode"
           >
             <Eye size={18} className="md:w-3.5 md:h-3.5" />
@@ -163,28 +165,28 @@ export default function NoteEditor({
         </div>
 
         {note.trashed ? (
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             <button
               onClick={() => onRestore(note.id)}
-              className="flex items-center gap-1 px-3 py-3 md:px-2 md:py-2 border border-hair text-sm md:text-[11px] uppercase tracking-wide hover:bg-ink-950 dark:hover:bg-ink-100"
+              className="pill px-3 py-3 md:px-3 md:py-2 text-sm md:text-[11px] uppercase tracking-[0.12em]"
             >
               <RotateCcw size={18} className="md:w-3.5 md:h-3.5" /> Restore
             </button>
             <button
               onClick={handleHardDelete}
-              className="flex items-center gap-1 px-3 py-3 md:px-2 md:py-2 border border-hair text-sm md:text-[11px] uppercase tracking-wide text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
+              className="pill px-3 py-3 md:px-3 md:py-2 text-sm md:text-[11px] uppercase tracking-[0.12em] text-accent border-accent/30 hover:bg-accent/10"
             >
               <Trash2 size={18} className="md:w-3.5 md:h-3.5" /> Delete Forever
             </button>
           </div>
         ) : (
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             <AiMenu loading={aiLoading} onPick={handleAiRun} />
             <button
               onClick={() => onToggleDone(note.id)}
-              className={`p-3 md:p-2 border border-hair ${
+              className={`icon-btn p-3 md:p-2 ${
                 note.done
-                  ? 'bg-green-600 border-green-600 text-white dark:bg-green-700 dark:border-green-700'
+                  ? 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-600'
                   : ''
               }`}
               aria-label={note.done ? 'Mark as not done' : 'Mark as done'}
@@ -197,14 +199,14 @@ export default function NoteEditor({
             </button>
             <button
               onClick={() => onTogglePin(note.id)}
-              className={`p-3 md:p-2 border border-hair ${note.pinned ? 'bg-ink-0 text-ink-1000 dark:bg-ink-1000 dark:text-ink-0' : ''}`}
+              className={`icon-btn p-3 md:p-2 ${note.pinned ? 'icon-btn-active' : ''}`}
               aria-label="Pin note"
             >
               <Pin size={18} className="md:w-3.5 md:h-3.5" />
             </button>
             <button
               onClick={() => onArchive(note.id, !note.archived)}
-              className={`p-3 md:p-2 border border-hair ${note.archived ? 'bg-ink-0 text-ink-1000 dark:bg-ink-1000 dark:text-ink-0' : ''}`}
+              className={`icon-btn p-3 md:p-2 ${note.archived ? 'icon-btn-active' : ''}`}
               aria-label={note.archived ? 'Unarchive note' : 'Archive note'}
             >
               {note.archived ? (
@@ -215,7 +217,7 @@ export default function NoteEditor({
             </button>
             <button
               onClick={() => onDelete(note.id)}
-              className="p-3 md:p-2 border border-hair"
+              className="icon-btn p-3 md:p-2 hover:text-accent hover:border-accent/40"
               aria-label="Move to trash"
             >
               <Trash2 size={18} className="md:w-3.5 md:h-3.5" />
@@ -228,18 +230,18 @@ export default function NoteEditor({
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Untitled"
-        className={`px-4 pt-4 text-xl md:text-lg font-bold bg-transparent outline-none placeholder:text-ink-500 ${
+        className={`px-5 pt-5 pb-1 text-2xl md:text-xl font-semibold tracking-tight bg-transparent outline-none placeholder:text-ink-500 ${
           note.done ? 'line-through text-ink-500' : ''
         }`}
       />
 
       {/* Timestamps — created once, updated on every edit. */}
-      <div className="px-4 pt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs md:text-[10px] uppercase tracking-wide text-ink-500">
+      <div className="px-5 pt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] uppercase tracking-[0.12em] text-ink-500">
         <span>Created: {formatFullTimestamp(note.created_at)}</span>
         <span>Updated: {formatFullTimestamp(note.updated_at)}</span>
       </div>
 
-      <div className="px-4 pt-2 flex flex-wrap items-center gap-2">
+      <div className="px-5 pt-2.5 flex flex-wrap items-center gap-2">
         {(note.tags || []).map((t) => (
           <TagBadge key={t} tag={t} color={colorOf(t)} onRemove={(name) => handleToggleTag(name, false)} />
         ))}
@@ -295,9 +297,9 @@ export default function NoteEditor({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3 md:p-4">
         {preview ? (
-          <div className="md-preview">
+          <div className="md-preview min-h-full glass rounded-[1.5rem] p-4 md:p-6">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
@@ -335,7 +337,7 @@ export default function NoteEditor({
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Write in Markdown…"
-            className="w-full h-full resize-none bg-transparent outline-none text-base md:text-sm leading-relaxed placeholder:text-ink-500"
+            className="w-full h-full resize-none rounded-[1.5rem] border border-hair bg-white/60 dark:bg-white/[0.03] backdrop-blur-xl p-4 md:p-5 outline-none text-base md:text-sm leading-relaxed placeholder:text-ink-500 focus:border-accent/40 transition-colors"
           />
         )}
       </div>

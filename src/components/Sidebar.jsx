@@ -12,28 +12,27 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ filter, onFilterChange, onCreateNote, darkMode, onToggleDark, tags = [], activeTag, onTagSelect, onClose }) {
   return (
-    <aside className="w-64 shrink-0 border-r border-hair h-full flex flex-col bg-ink-1000 dark:bg-ink-0">
-      <div className="p-4 border-b border-hair flex items-center justify-between">
-        <span className="text-base md:text-sm font-bold tracking-widest uppercase">monote</span>
-        <div className="flex items-center gap-1.5 md:gap-1">
+    <aside className="w-72 md:w-64 shrink-0 sidebar-glass rounded-r-[2rem] md:rounded-[2rem] h-full flex flex-col overflow-hidden">
+      <div className="px-4 py-4 border-b border-hair flex items-center justify-between">
+        <span className="dot-display text-2xl leading-none flex items-center gap-1.5 select-none">
+          monote
+          <span className="w-1.5 h-1.5 rounded-full bg-accent shadow-glow" />
+        </span>
+        <div className="flex items-center gap-1.5">
           <button
             onClick={onToggleDark}
-            className="p-2 md:p-1 border border-hair hover:bg-ink-950 dark:hover:bg-ink-100"
+            className="icon-btn p-2"
             aria-label="Toggle theme"
           >
-            {darkMode ? (
-              <Sun size={18} className="md:w-3.5 md:h-3.5" />
-            ) : (
-              <Moon size={18} className="md:w-3.5 md:h-3.5" />
-            )}
+            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 md:p-1 border border-hair hover:bg-ink-950 dark:hover:bg-ink-100 md:hidden"
+              className="icon-btn p-2 md:hidden"
               aria-label="Close menu"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           )}
         </div>
@@ -41,49 +40,64 @@ export default function Sidebar({ filter, onFilterChange, onCreateNote, darkMode
 
       <button
         onClick={onCreateNote}
-        className="m-3 flex items-center justify-center gap-2 border border-hair py-3 md:py-2 text-sm md:text-xs uppercase tracking-wide hover:bg-ink-0 hover:text-ink-1000 dark:hover:bg-ink-1000 dark:hover:text-ink-0 transition-colors"
+        className="pill pill-invert mx-3 mt-4 py-3 md:py-2.5 text-xs shadow-glass"
       >
-        <Plus size={18} className="md:w-3.5 md:h-3.5" /> New Note
+        <Plus size={16} />
+        <span className="dot-label text-[11px]">New Note</span>
       </button>
 
-      <nav className="flex-1 overflow-y-auto px-2">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => onFilterChange(key)}
-            className={`w-full flex items-center gap-2.5 md:gap-2 px-2 py-3 md:py-2 text-sm md:text-xs uppercase tracking-wide text-left ${
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-full text-left transition-colors ${
               filter === key
-                ? 'bg-ink-0 text-ink-1000 dark:bg-ink-1000 dark:text-ink-0'
-                : 'hover:bg-ink-950 dark:hover:bg-ink-100'
+                ? 'pill-invert shadow-glass'
+                : 'text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000 hover:bg-white/45 dark:hover:bg-white/[0.06]'
             }`}
           >
-            <Icon size={18} className="md:w-3.5 md:h-3.5 shrink-0" /> {label}
+            <Icon size={17} className="shrink-0" />
+            <span className="dot-label text-[12px] leading-none">{label}</span>
+            {filter === key && (
+              <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent shrink-0" />
+            )}
           </button>
         ))}
 
         {tags.length > 0 && (
-          <div className="mt-4 pt-3 border-t border-hair">
-            <p className="px-2 pb-2 text-xs md:text-[10px] uppercase tracking-widest text-ink-500">Tags</p>
+          <div className="mt-4 pt-4 border-t border-hair">
+            <p className="px-3 pb-2 dot-label text-[10px] text-ink-500">Tags</p>
             {tags.map((tag) => (
               <button
                 key={tag.id}
                 onClick={() => onTagSelect(activeTag === tag.name ? null : tag.name)}
-                className={`w-full flex items-center gap-2.5 md:gap-2 text-left px-2 py-2.5 md:py-1.5 text-sm md:text-xs ${
+                className={`w-full flex items-center gap-3 text-left px-3.5 py-2 rounded-full transition-colors ${
                   activeTag === tag.name
-                    ? 'bg-ink-0 text-ink-1000 dark:bg-ink-1000 dark:text-ink-0'
-                    : 'hover:bg-ink-950 dark:hover:bg-ink-100'
+                    ? 'pill-invert shadow-glass'
+                    : 'text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000 hover:bg-white/45 dark:hover:bg-white/[0.06]'
                 }`}
               >
                 <span
-                  className="w-2.5 h-2.5 md:w-2 md:h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: tag.color }}
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: tag.color, boxShadow: `0 0 8px ${tag.color}66` }}
                 />
-                {tag.name}
+                <span className="truncate text-sm md:text-xs">{tag.name}</span>
+                {activeTag === tag.name && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent shrink-0" />
+                )}
               </button>
             ))}
           </div>
         )}
       </nav>
+
+      <div className="px-4 py-3.5 border-t border-hair flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full bg-accent" />
+        <span className="h-2 w-2 rounded-full bg-ink-0 dark:bg-ink-1000 opacity-80" />
+        <span className="h-2 w-2 rounded-full bg-ink-400 opacity-40" />
+        <span className="ml-auto dot-label text-[9px] text-ink-500">dot matrix</span>
+      </div>
     </aside>
   )
 }

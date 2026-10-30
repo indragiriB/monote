@@ -1,10 +1,10 @@
 export default function TagBadge({ tag, color = '#999999', onRemove, active = false }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 border px-2.5 py-1 md:px-2 md:py-0.5 text-xs md:text-[11px] uppercase tracking-wide"
+      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 md:px-2 md:py-0.5 text-xs md:text-[11px] uppercase tracking-[0.08em] transition-colors"
       style={{
-        borderColor: color,
-        backgroundColor: active ? color : 'transparent',
+        borderColor: active ? color : `${color}66`,
+        backgroundColor: active ? color : `${color}14`,
         color: active ? '#ffffff' : 'inherit',
       }}
     >

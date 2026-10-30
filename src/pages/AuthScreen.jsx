@@ -23,11 +23,17 @@ export default function AuthScreen() {
   }
 
   return (
-    <div className="h-screen flex items-center justify-center font-mono">
-      <form onSubmit={handleSubmit} className="w-full max-w-xs border border-hair p-6">
-        <h1 className="text-sm font-bold uppercase tracking-widest mb-6 text-center">monote</h1>
+    <div className="h-screen flex items-center justify-center p-6">
+      <form onSubmit={handleSubmit} className="glass-strong w-full max-w-sm rounded-[2rem] p-7">
+        <div className="flex flex-col items-center mb-8">
+          <h1 className="dot-display text-4xl leading-none flex items-center gap-2">
+            monote
+            <span className="w-2 h-2 rounded-full bg-accent shadow-glow" />
+          </h1>
+          <p className="mt-3 dot-label text-[9px] text-ink-500">Dot matrix notes</p>
+        </div>
 
-        <label className="block text-[11px] uppercase tracking-wide text-ink-500 mb-1">
+        <label className="block dot-label text-[9px] text-ink-500 mb-1.5">
           Email
         </label>
         <input
@@ -35,10 +41,10 @@ export default function AuthScreen() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full border border-hair px-3 py-2 mb-3 bg-transparent outline-none text-sm"
+          className="glass-input w-full px-4 py-2.5 mb-3.5 outline-none text-sm"
         />
 
-        <label className="block text-[11px] uppercase tracking-wide text-ink-500 mb-1">
+        <label className="block dot-label text-[9px] text-ink-500 mb-1.5">
           Password
         </label>
         <input
@@ -47,7 +53,7 @@ export default function AuthScreen() {
           minLength={6}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full border border-hair px-3 py-2 mb-4 bg-transparent outline-none text-sm"
+          className="glass-input w-full px-4 py-2.5 mb-4 outline-none text-sm"
         />
 
         {status && <p className="text-xs mb-3 text-ink-500">{status}</p>}
@@ -55,18 +61,26 @@ export default function AuthScreen() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full border border-hair py-2 text-xs uppercase tracking-wide hover:bg-ink-0 hover:text-ink-1000 dark:hover:bg-ink-1000 dark:hover:text-ink-0 transition-colors disabled:opacity-50"
+          className="pill pill-invert w-full py-3 text-xs disabled:opacity-50"
         >
-          {loading ? 'Please wait…' : mode === 'sign-in' ? 'Sign In' : 'Sign Up'}
+          <span className="dot-label text-[11px]">
+            {loading ? 'Please wait…' : mode === 'sign-in' ? 'Sign In' : 'Sign Up'}
+          </span>
         </button>
 
         <button
           type="button"
           onClick={() => setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')}
-          className="w-full text-center text-[11px] text-ink-500 mt-3 underline"
+          className="w-full text-center text-[11px] text-ink-500 mt-4 hover:text-accent transition-colors"
         >
           {mode === 'sign-in' ? 'Need an account? Sign up' : 'Have an account? Sign in'}
         </button>
+
+        <div className="mt-6 flex items-center justify-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+          <span className="h-1.5 w-1.5 rounded-full bg-ink-0 dark:bg-ink-1000 opacity-70" />
+          <span className="h-1.5 w-1.5 rounded-full bg-ink-400 opacity-40" />
+        </div>
       </form>
     </div>
   )

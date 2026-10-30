@@ -48,6 +48,8 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', darkMode ? '#000000' : '#f4f4f1')
   }, [darkMode])
 
   useEffect(() => {
@@ -212,8 +214,8 @@ export default function App() {
 
   if (session === undefined) {
     return (
-      <div className="h-screen flex items-center justify-center text-sm text-ink-500">
-        Loading…
+      <div className="h-screen flex items-center justify-center">
+        <span className="dot-label text-sm text-ink-500">Loading…</span>
       </div>
     )
   }
@@ -228,7 +230,7 @@ export default function App() {
   const archivedView = filter === 'archived'
 
   return (
-    <div className="h-[100dvh] flex overflow-hidden relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <div className="app-ambient h-[100dvh] flex overflow-hidden relative gap-0 md:gap-3 md:p-3 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Backdrop for the mobile sidebar drawer */}
       {sidebarOpen && (
         <div
@@ -242,9 +244,9 @@ export default function App() {
           against the viewport, not their padded parent), so this drawer
           needs its own safe-area padding to clear the status/nav bars. */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 transform transition-transform duration-200 ease-out
+        className={`fixed inset-y-0 left-0 z-40 transform-gpu transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-reduce:transition-none
           pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
-          md:static md:translate-x-0 md:z-auto md:pt-0 md:pb-0
+          md:static md:translate-x-0 md:z-auto md:pt-0 md:pb-0 md:transform-none md:will-change-auto
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <Sidebar
@@ -262,18 +264,20 @@ export default function App() {
 
       {/* Note list / tag overview / calendar column */}
       <div
-        className={`w-full md:w-80 min-w-0 shrink-0 border-hair flex-col
-          ${mobileView === 'editor' ? 'hidden' : 'flex'} md:flex md:border-r`}
+        className={`w-full md:w-80 min-w-0 shrink-0 flex-col overflow-hidden
+          md:rounded-[2rem] md:border md:border-black/10 dark:md:border-white/10
+          md:bg-white/45 dark:md:bg-white/[0.03] md:backdrop-blur-2xl md:shadow-glass
+          ${mobileView === 'editor' ? 'hidden' : 'flex'} md:flex`}
       >
-        <div className="flex items-center gap-2 p-3 border-b border-hair md:hidden">
+        <div className="flex items-center gap-2 p-3 border-b border-hair bg-white/35 dark:bg-white/[0.02] backdrop-blur-xl md:hidden">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2.5 border border-hair"
+            className="icon-btn p-2.5"
             aria-label="Open menu"
           >
             <Menu size={20} />
           </button>
-          <span className="text-sm uppercase tracking-widest font-bold truncate">
+          <span className="dot-label text-sm truncate">
             {activeTag ? `#${activeTag}` : activeDay ? activeDay : FILTER_LABELS[filter]}
           </span>
         </div>
@@ -281,20 +285,22 @@ export default function App() {
         {filter === 'grouped' && activeTag && (
           <button
             onClick={() => setActiveTag(null)}
-            className="flex items-center gap-1 px-3 py-3 md:py-2 border-b border-hair text-sm md:text-xs uppercase tracking-wide hover:bg-ink-950 dark:hover:bg-ink-100"
+            className="flex items-center gap-1.5 px-4 py-3 md:py-2.5 border-b border-hair text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000 hover:bg-white/40 dark:hover:bg-white/5 transition-colors"
           >
             <ChevronLeft size={18} className="md:hidden" />
-            <ChevronLeft size={14} className="hidden md:block" /> All tags
+            <ChevronLeft size={14} className="hidden md:block" />
+            <span className="dot-label text-[11px]">All tags</span>
           </button>
         )}
 
         {filter === 'calendar' && activeDay && (
           <button
             onClick={() => setActiveDay(null)}
-            className="flex items-center gap-1 px-3 py-3 md:py-2 border-b border-hair text-sm md:text-xs uppercase tracking-wide hover:bg-ink-950 dark:hover:bg-ink-100"
+            className="flex items-center gap-1.5 px-4 py-3 md:py-2.5 border-b border-hair text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000 hover:bg-white/40 dark:hover:bg-white/5 transition-colors"
           >
             <ChevronLeft size={18} className="md:hidden" />
-            <ChevronLeft size={14} className="hidden md:block" /> Calendar
+            <ChevronLeft size={14} className="hidden md:block" />
+            <span className="dot-label text-[11px]">Calendar</span>
           </button>
         )}
 
@@ -334,12 +340,18 @@ export default function App() {
       </div>
 
       {/* Editor column */}
-      <div className={`flex-1 min-w-0 min-h-0 flex-col ${mobileView === 'list' ? 'hidden' : 'flex'} md:flex`}>
+      <div
+        className={`flex-1 min-w-0 min-h-0 flex-col overflow-hidden
+          md:rounded-[2rem] md:border md:border-black/10 dark:md:border-white/10
+          md:bg-white/45 dark:md:bg-white/[0.03] md:backdrop-blur-2xl md:shadow-glass
+          ${mobileView === 'list' ? 'hidden' : 'flex'} md:flex`}
+      >
         <button
           onClick={() => setMobileView('list')}
-          className="flex items-center gap-1 px-3 py-3 border-b border-hair text-sm uppercase tracking-wide md:hidden"
+          className="flex items-center gap-1.5 px-4 py-3 border-b border-hair text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000 bg-white/35 dark:bg-white/[0.02] backdrop-blur-xl md:hidden"
         >
-          <ChevronLeft size={18} /> Back
+          <ChevronLeft size={18} />
+          <span className="dot-label text-[11px]">Back</span>
         </button>
         <NoteEditor
           note={activeNote}

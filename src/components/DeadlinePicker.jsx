@@ -64,12 +64,12 @@ export default function DeadlinePicker({ deadline, done = false, onSet, onClear 
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`inline-flex items-center gap-1.5 border px-2.5 py-1 md:px-2 md:py-0.5 text-xs md:text-[11px] uppercase tracking-wide ${
+        className={`pill inline-flex items-center gap-1.5 px-2.5 py-1 md:px-2 md:py-0.5 text-xs md:text-[11px] uppercase tracking-[0.1em] ${
           deadline
             ? !done && isDeadlineNear(deadline)
-              ? 'border-red-500 text-red-600 dark:text-red-400 font-semibold'
-              : 'border-hair text-ink-500 hover:bg-ink-950 dark:hover:bg-ink-100'
-            : 'border-hair hover:bg-ink-950 dark:hover:bg-ink-100'
+              ? 'border-accent/50 text-accent font-semibold bg-accent/5'
+              : 'text-ink-500'
+            : 'text-ink-500'
         }`}
       >
         <CalendarClock size={14} className="md:w-[11px] md:h-[11px]" />{' '}
@@ -82,7 +82,7 @@ export default function DeadlinePicker({ deadline, done = false, onSet, onClear 
         // sat near a screen edge). Desktop (`md:`): back to the normal
         // inline dropdown anchored under the trigger button.
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 md:absolute md:inset-auto md:z-50 md:mt-1 md:bg-transparent md:p-0"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 md:absolute md:inset-auto md:z-50 md:mt-1 md:bg-transparent md:backdrop-blur-none md:p-0"
           onClick={(e) => {
             // Only closes on a direct click on the backdrop, not one that
             // bubbles up from the card — the outside-click listener above
@@ -91,25 +91,25 @@ export default function DeadlinePicker({ deadline, done = false, onSet, onClear 
           }}
         >
           <div
-            className="w-80 md:w-64 max-w-full border border-hair bg-ink-1000 dark:bg-ink-0 p-4 md:p-3"
+            className="glass-strong w-80 md:w-64 max-w-full rounded-[1.75rem] p-4 md:p-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3 md:mb-2">
               <button
                 type="button"
                 onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-                className="p-2 md:p-1 border border-hair"
+                className="icon-btn p-2 md:p-1"
                 aria-label="Previous month"
               >
                 <ChevronLeft size={16} className="md:w-3 md:h-3" />
               </button>
-              <span className="text-sm md:text-xs font-bold uppercase tracking-wide">
+              <span className="dot-label text-xs md:text-[11px]">
                 {cursor.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
               </span>
               <button
                 type="button"
                 onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-                className="p-2 md:p-1 border border-hair"
+                className="icon-btn p-2 md:p-1"
                 aria-label="Next month"
               >
                 <ChevronRight size={16} className="md:w-3 md:h-3" />
@@ -118,7 +118,7 @@ export default function DeadlinePicker({ deadline, done = false, onSet, onClear 
 
             <div className="grid grid-cols-7 gap-1.5 md:gap-1 text-center">
               {WEEKDAYS.map((w, i) => (
-                <span key={i} className="text-[10px] md:text-[9px] text-ink-500">
+                <span key={i} className="text-[10px] md:text-[9px] dot-label text-ink-500">
                   {w}
                 </span>
               ))}
@@ -132,12 +132,12 @@ export default function DeadlinePicker({ deadline, done = false, onSet, onClear 
                     key={i}
                     type="button"
                     onClick={() => pickDay(date)}
-                    className={`text-sm md:text-[11px] py-2 md:py-1 border ${
+                    className={`flex h-9 md:h-7 items-center justify-center rounded-full text-sm md:text-[11px] transition-colors ${
                       isSelected
-                        ? 'bg-ink-0 text-ink-1000 dark:bg-ink-1000 dark:text-ink-0 border-transparent'
+                        ? 'bg-ink-0 text-ink-1000 dark:bg-ink-1000 dark:text-ink-0 shadow-glass'
                         : isToday
-                          ? 'border-ink-400'
-                          : 'border-transparent hover:bg-ink-950 dark:hover:bg-ink-100'
+                          ? 'text-accent ring-1 ring-accent/60 hover:bg-accent/10'
+                          : 'text-ink-500 hover:bg-white/60 dark:hover:bg-white/10'
                     }`}
                   >
                     {date.getDate()}
@@ -151,7 +151,7 @@ export default function DeadlinePicker({ deadline, done = false, onSet, onClear 
                 type="time"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
-                className="flex-1 border border-hair px-2 py-2 md:py-1 bg-transparent outline-none text-sm md:text-xs"
+                className="glass-input flex-1 px-3 py-2 md:py-1 outline-none text-sm md:text-xs"
               />
             </div>
 
@@ -160,7 +160,7 @@ export default function DeadlinePicker({ deadline, done = false, onSet, onClear 
                 type="button"
                 onClick={confirm}
                 disabled={!selectedDay}
-                className="flex-1 border border-hair py-2.5 md:py-1.5 text-sm md:text-[11px] uppercase tracking-wide hover:bg-ink-0 hover:text-ink-1000 dark:hover:bg-ink-1000 dark:hover:text-ink-0 disabled:opacity-50"
+                className="pill pill-invert flex-1 py-2.5 md:py-1.5 text-[11px] uppercase tracking-[0.12em] disabled:opacity-50"
               >
                 Set
               </button>
@@ -168,7 +168,7 @@ export default function DeadlinePicker({ deadline, done = false, onSet, onClear 
                 <button
                   type="button"
                   onClick={clearDeadline}
-                  className="border border-hair px-3 md:px-2 text-sm md:text-[11px] uppercase tracking-wide hover:bg-ink-950 dark:hover:bg-ink-100"
+                  className="pill px-3 md:px-2.5 text-ink-500"
                   aria-label="Clear deadline"
                 >
                   <X size={16} className="md:w-3 md:h-3" />
