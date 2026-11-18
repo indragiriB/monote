@@ -4,422 +4,148 @@
 
 :root {
   color-scheme: light;
-  --dot-color: rgba(10, 10, 10, 0.16);
-  --dot-space: 18px;
-
-  --glass-bg: rgba(255, 255, 255, 0.6);
-  --glass-border: rgba(255, 255, 255, 0.72);
-  --glass-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
-
-  --glass-strong-bg: rgba(255, 255, 255, 0.78);
-  --glass-strong-border: rgba(255, 255, 255, 0.9);
-
-  --hair: rgba(10, 10, 10, 0.1);
-  --hair-soft: rgba(10, 10, 10, 0.06);
+  --bg: #ffffff;
+  --fg: #0a0a0a;
+  --muted: #737373;
+  --border: #e5e5e5;
+  --border-strong: #0a0a0a;
+  --surface: #fafafa;
+  --accent: #0a0a0a;
 }
 
 .dark {
   color-scheme: dark;
-  --dot-color: rgba(255, 255, 255, 0.15);
-
-  --glass-bg: rgba(255, 255, 255, 0.06);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-
-  --glass-strong-bg: rgba(18, 18, 18, 0.8);
-  --glass-strong-border: rgba(255, 255, 255, 0.12);
-
-  --hair: rgba(255, 255, 255, 0.1);
-  --hair-soft: rgba(255, 255, 255, 0.06);
+  --bg: #0a0a0a;
+  --fg: #fafafa;
+  --muted: #a3a3a3;
+  --border: #262626;
+  --border-strong: #fafafa;
+  --surface: #171717;
+  --accent: #fafafa;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html,
-body,
-#root {
-  height: 100%;
-}
+html, body, #root { height: 100%; }
 
-/* Nothing OS-style dotted canvas. The dots stay fixed while panels float
-   above them, which is what makes the glass surfaces read as glass. */
 body {
-  background-color: #f4f4f1;
-  background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1.5px);
-  background-size: var(--dot-space) var(--dot-space);
-  background-attachment: fixed;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.dark body {
-  background-color: #000000;
-}
-
-/* Subtle coloured bloom behind the glass panels (transparent elsewhere so
-   the dotted canvas shows through). */
-.app-ambient {
-  background-image: radial-gradient(
-      560px circle at 95% 0%,
-      rgba(215, 25, 33, 0.12),
-      transparent 65%
-    ),
-    radial-gradient(640px circle at 0% 100%, rgba(120, 120, 120, 0.12), transparent 65%);
-}
-
-.dark .app-ambient {
-  background-image: radial-gradient(
-      560px circle at 95% 0%,
-      rgba(215, 25, 33, 0.18),
-      transparent 65%
-    ),
-    radial-gradient(640px circle at 0% 100%, rgba(255, 255, 255, 0.06), transparent 65%);
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: 'Outfit', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: #d71921;
-  color: #ffffff;
+  background: var(--fg);
+  color: var(--bg);
 }
 
-button,
-a,
-input,
-textarea {
+button, a, input, textarea {
+  font-family: inherit;
   -webkit-tap-highlight-color: transparent;
 }
 
-button:focus-visible,
-a:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid #d71921;
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--fg);
   outline-offset: 2px;
 }
 
-input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid #d71921;
-  outline-offset: 4px;
-}
-
-/* Inputs inside a frosted shell already show a red ring on the shell —
-   don't draw a second outline around the bare field. */
-.glass-input input:focus-visible,
-input.glass-input:focus-visible {
+input:focus-visible, textarea:focus-visible {
   outline: none;
+  box-shadow: inset 0 -2px 0 0 var(--fg);
 }
 
 @layer components {
-  /* Frosted floating panel — the base building block of the new look. */
-  .glass {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    -webkit-backdrop-filter: blur(28px) saturate(150%);
-    backdrop-filter: blur(28px) saturate(150%);
-    box-shadow: var(--glass-shadow);
-  }
-
-  /* The sidebar is the only element that slides. On phones it uses an
-     opaque-ish surface without backdrop-filter, so the drawer animation
-     stays on the compositor instead of re-blurring the page every frame.
-     Desktop keeps the full frosted glass. */
-  .sidebar-glass {
-    background: rgba(247, 247, 244, 0.94);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-  }
-
-  .dark .sidebar-glass {
-    background: rgba(12, 12, 12, 0.95);
-  }
-
-  @media (min-width: 768px) {
-    .sidebar-glass {
-      background: var(--glass-bg);
-      -webkit-backdrop-filter: blur(28px) saturate(150%);
-      backdrop-filter: blur(28px) saturate(150%);
-    }
-
-    .dark .sidebar-glass {
-      background: var(--glass-bg);
-    }
-  }
-
-  /* Denser glass for popovers/dialogs so text stays readable on top of
-     the dotted canvas. */
-  .glass-strong {
-    background: var(--glass-strong-bg);
-    border: 1px solid var(--glass-strong-border);
-    -webkit-backdrop-filter: blur(36px) saturate(170%);
-    backdrop-filter: blur(36px) saturate(170%);
-    box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  }
-
-  .dark .glass-strong {
-    box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.95),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  }
-
-  /* Thin translucent hairline replaces the old hard 1px B&W border.
-     Only sets the colour — pair it with `border`, `border-b`, etc. */
-  .border-hair {
-    border-color: var(--hair);
-  }
-
-  .border-hair-soft {
-    border-color: var(--hair-soft);
-  }
-
-  /* Fine dot matrix used inside empty states and small accent surfaces. */
-  .dot-panel {
-    background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1.5px);
-    background-size: 12px 12px;
-  }
-
-  /* Dot-matrix type, borrowed from Nothing's Ndot display face. */
-  .dot-label {
-    font-family: 'Doto', 'JetBrains Mono', ui-monospace, monospace;
-    font-weight: 800;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-  }
-
-  .dot-display {
-    font-family: 'Doto', 'JetBrains Mono', ui-monospace, monospace;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-  }
-
-  /* Circular frosted icon button (toolbars, month arrows, close buttons). */
-  .icon-btn {
+  .btn-bw {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 9999px;
-    border: 1px solid var(--hair);
-    background: rgba(255, 255, 255, 0.45);
-    transition: background-color 0.15s ease, border-color 0.15s ease,
-      color 0.15s ease, transform 0.15s ease;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    border: 1.5px solid var(--fg);
+    background: transparent;
+    color: var(--fg);
+    transition: all 0.15s ease;
+    cursor: pointer;
   }
-
-  .icon-btn:hover {
-    background: rgba(255, 255, 255, 0.8);
-    border-color: rgba(10, 10, 10, 0.18);
+  .btn-bw:hover {
+    background: var(--fg);
+    color: var(--bg);
   }
+  .btn-bw:active { transform: scale(0.98); }
 
-  .icon-btn:active {
-    transform: scale(0.94);
-  }
-
-  .dark .icon-btn {
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .dark .icon-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.18);
-  }
-
-  .icon-btn-active {
-    background: #0a0a0a;
-    border-color: #0a0a0a;
-    color: #ffffff;
-  }
-
-  .icon-btn-active:hover {
-    background: #000000;
-    border-color: #000000;
-    color: #ffffff;
-  }
-
-  .dark .icon-btn-active,
-  .dark .icon-btn-active:hover {
-    background: #ffffff;
-    border-color: #ffffff;
-    color: #000000;
-  }
-
-  /* Frosted input shell. */
-  .glass-input {
-    border-radius: 16px;
-    border: 1px solid var(--hair);
-    background: rgba(255, 255, 255, 0.5);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease,
-      background-color 0.15s ease;
-  }
-
-  .glass-input:focus,
-  .glass-input:focus-within {
-    background: rgba(255, 255, 255, 0.75);
-    border-color: rgba(215, 25, 33, 0.55);
-    box-shadow: 0 0 0 3px rgba(215, 25, 33, 0.12);
-  }
-
-  .dark .glass-input {
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .dark .glass-input:focus,
-  .dark .glass-input:focus-within {
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  /* Pill used for primary/back/confirm actions. */
-  .pill {
+  .btn-bw-solid {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
-    border-radius: 9999px;
-    border: 1px solid var(--hair);
-    background: rgba(255, 255, 255, 0.45);
-    transition: background-color 0.15s ease, border-color 0.15s ease,
-      color 0.15s ease, transform 0.15s ease;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    border: 1.5px solid var(--fg);
+    background: var(--fg);
+    color: var(--bg);
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+  .btn-bw-solid:hover {
+    opacity: 0.85;
   }
 
-  .pill:hover {
-    background: rgba(255, 255, 255, 0.8);
+  .input-line {
+    width: 100%;
+    padding: 0.75rem 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--fg);
+    font-size: 1rem;
+    transition: border-color 0.15s ease;
+  }
+  .input-line::placeholder { color: var(--muted); }
+  .input-line:focus {
+    border-bottom-color: var(--fg);
+    box-shadow: none;
   }
 
-  .pill:active {
-    transform: scale(0.98);
+  .note-row {
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s ease;
   }
-
-  .dark .pill {
-    background: rgba(255, 255, 255, 0.05);
+  .note-row:hover {
+    background: var(--surface);
   }
-
-  .dark .pill:hover {
-    background: rgba(255, 255, 255, 0.12);
-  }
-
-  .pill-invert,
-  .dark .pill-invert {
-    background: #0a0a0a;
-    border-color: #0a0a0a;
-    color: #ffffff;
-  }
-
-  .pill-invert:hover,
-  .dark .pill-invert:hover {
-    background: #000000;
-    border-color: #000000;
-    color: #ffffff;
-  }
-
-  .dark .pill-invert,
-  .dark .pill-invert:hover {
-    background: #ffffff;
-    border-color: #ffffff;
-    color: #000000;
+  .note-row.active {
+    border-left: 3px solid var(--fg);
+    padding-left: calc(1.25rem - 3px);
   }
 }
 
-/* Scrollbars are hidden everywhere — every scrollable area (sidebar,
-   note list, editor, popovers, calendar) still scrolls normally with
-   touch/trackpad/keyboard, it just never shows a visible scrollbar track. */
-* {
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* old Edge/IE */
-}
-*::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, the Android WebView */
-  width: 0;
-  height: 0;
-}
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+*::-webkit-scrollbar { width: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-/* Markdown preview inside the editor. */
-.md-preview {
-  font-size: 0.95rem;
-  line-height: 1.7;
-}
-.md-preview h1,
-.md-preview h2,
-.md-preview h3 {
-  font-family: 'Doto', 'JetBrains Mono', ui-monospace, monospace;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  margin: 1em 0 0.35em;
-}
-.md-preview h1 {
-  font-size: 1.7em;
-}
-.md-preview h2 {
-  font-size: 1.35em;
-}
-.md-preview h3 {
-  font-size: 1.15em;
-}
-.md-preview p {
-  margin: 0.55em 0;
-}
-.md-preview a {
-  color: #d71921;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.md-preview ul {
-  list-style: disc;
-  padding-left: 1.4em;
-  margin: 0.5em 0;
-}
-.md-preview ol {
-  list-style: decimal;
-  padding-left: 1.4em;
-  margin: 0.5em 0;
-}
-.md-preview blockquote {
-  border-left: 2px solid #d71921;
-  padding-left: 12px;
-  margin: 0.75em 0;
-  color: #777777;
-}
-.md-preview hr {
-  border-color: var(--hair);
-  margin: 1.25em 0;
-}
-.md-preview code {
-  background: rgba(10, 10, 10, 0.06);
-  border: 1px solid var(--hair);
-  border-radius: 8px;
-  padding: 1px 6px;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.88em;
-}
-.dark .md-preview code {
-  background: rgba(255, 255, 255, 0.08);
-}
-.md-preview pre {
-  background: rgba(10, 10, 10, 0.92);
-  color: #f5f5f5;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 14px 16px;
-  overflow-x: auto;
-  margin: 0.75em 0;
-}
-.md-preview pre code {
-  background: transparent;
-  border: 0;
-  padding: 0;
-}
-.md-preview input[type='checkbox'] {
-  accent-color: #d71921;
-}
-.md-preview table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 0.75em 0;
-  font-size: 0.9em;
-}
-.md-preview th,
-.md-preview td {
-  border: 1px solid var(--hair);
-  padding: 6px 10px;
-  text-align: left;
-}
+/* Markdown */
+.md-preview { font-size: 1rem; line-height: 1.8; color: var(--fg); }
+.md-preview h1, .md-preview h2, .md-preview h3 { font-weight: 600; margin: 1.5em 0 0.5em; line-height: 1.3; letter-spacing: -0.02em; }
+.md-preview h1 { font-size: 2.25rem; }
+.md-preview h2 { font-size: 1.5rem; }
+.md-preview h3 { font-size: 1.25rem; }
+.md-preview p { margin: 0.75em 0; }
+.md-preview a { color: var(--fg); text-decoration: underline; text-underline-offset: 4px; }
+.md-preview ul, .md-preview ol { padding-left: 1.5em; margin: 0.75em 0; }
+.md-preview blockquote { border-left: 2px solid var(--fg); padding-left: 1rem; margin: 1em 0; color: var(--muted); font-style: italic; }
+.md-preview hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+.md-preview code { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; background: var(--surface); padding: 2px 6px; border: 1px solid var(--border); }
+.md-preview pre { background: var(--fg); color: var(--bg); padding: 1.25rem; overflow-x: auto; margin: 1.25em 0; }
+.md-preview pre code { background: transparent; border: none; padding: 0; color: inherit; }
+.md-preview table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+.md-preview th, .md-preview td { border: 1px solid var(--border); padding: 0.75rem; text-align: left; }
+.md-preview th { font-weight: 600; }

@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Menu, ChevronLeft } from 'lucide-react'
+import { Menu, Plus, Moon, Sun, Search, X } from 'lucide-react'
 import { App as CapacitorApp } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { supabase } from './lib/supabaseClient'
 import { db } from './lib/localDb'
 import { useNotes } from './hooks/useNotes'
 import { useTags } from './hooks/useTags'
-import Sidebar from './components/Sidebar'
-import SearchBar from './components/SearchBar'
 import NoteList from './components/NoteList'
 import NoteEditor from './components/NoteEditor'
 import TagOverview from './components/TagOverview'
@@ -17,39 +15,31 @@ import { syncWidget } from './lib/widgetBridge'
 import { rehydrateReminders, onNotificationTap } from './lib/reminders'
 import { getUpcomingDeadlines } from './lib/noteQueries'
 
-const FILTER_LABELS = {
-  all: 'All Notes',
-  pinned: 'Pinned',
-  done: 'Done',
-  archived: 'Archived',
-  trashed: 'Trash',
-  grouped: 'By Tag',
-  calendar: 'Calendar',
-}
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'pinned', label: 'Pinned' },
+  { key: 'done', label: 'Done' },
+  { key: 'grouped', label: 'Tags' },
+  { key: 'calendar', label: 'Calendar' },
+  { key: 'archived', label: 'Archived' },
+  { key: 'trashed', label: 'Trash' },
+]
 
 export default function App() {
-  const [session, setSession] = useState(undefined) // undefined = loading
+  const [session, setSession] = useState(undefined)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [view, setView] = useState('list')
   const [activeId, setActiveId] = useState(null)
   const [activeTag, setActiveTag] = useState(null)
-  const [activeDay, setActiveDay] = useState(null) // 'YYYY-MM-DD', for the Calendar menu
-  const [darkMode, setDarkMode] = useState(
-    () => window.matchMedia('(prefers-color-scheme: dark)').matches
-  )
-
-  // Mobile-only navigation state. Below the `md` breakpoint we show one
-  // panel at a time (sidebar drawer OR list OR editor) instead of the
-  // three-column desktop layout — a phone screen just isn't wide enough
-  // for all three at once.
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [mobileView, setMobileView] = useState('list') // 'list' | 'editor'
+  const [activeDay, setActiveDay] = useState(null)
+  const [darkMode, setDarkMode] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const [mobileShowEditor, setMobileShowEditor] = useState(false)
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode)
     const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', darkMode ? '#000000' : '#f4f4f1')
+    if (meta) meta.setAttribute('content', darkMode ? '#0a0a0a' : '#ffffff')
   }, [darkMode])
 
   useEffect(() => {
@@ -59,170 +49,48 @@ export default function App() {
   }, [])
 
   const userId = session?.user?.id
-
   const { tags, createTag, updateTag, deleteTag, colorOf } = useTags(userId)
-
-  const {
-    notes,
-    hasMore,
-    isFetchingMore,
-    loadMore,
-    createNote,
-    updateNote,
-    deleteNote,
-    togglePin,
-    toggleDone,
-  } = useNotes({
-    userId,
-    filter,
-    search,
-    tag: activeTag,
-    day: activeDay,
+  const { notes, hasMore, isFetchingMore, loadMore, createNote, updateNote, deleteNote, togglePin, toggleDone } = useNotes({
+    userId, filter, search, tag: activeTag, day: activeDay,
   })
 
-  // The currently selected note might not be in the currently-paginated /
-  // filtered `notes` result (e.g. opened from a notification tap, or from
-  // the calendar/tag drill-in views) — fall back to fetching it directly.
   const [directNote, setDirectNote] = useState(null)
   useEffect(() => {
-    if (!activeId || notes.some((n) => n.id === activeId)) {
-      setDirectNote(null)
-      return
-    }
+    if (!activeId || notes.some((n) => n.id === activeId)) { setDirectNote(null); return }
     let cancelled = false
-    db.notes.get(activeId).then((n) => {
-      if (!cancelled) setDirectNote(n ?? null)
-    })
-    return () => {
-      cancelled = true
-    }
+    db.notes.get(activeId).then((n) => { if (!cancelled) setDirectNote(n ?? null) })
+    return () => { cancelled = true }
   }, [activeId, notes])
 
   const activeNote = notes.find((n) => n.id === activeId) ?? directNote
 
-  // Mirror the current (loaded) note set to the Android home screen widget
-  // whenever it changes (no-op on web, see lib/widgetBridge.js).
-  useEffect(() => {
-    syncWidget(notes)
-  }, [notes])
-
-  // Re-arm reminders for every upcoming deadline once we're logged in —
-  // this is what makes reminders survive an app restart (a fresh Android
-  // install's alarm table, and the in-memory web timers, both start empty).
-  useEffect(() => {
-    if (!userId) return
-    rehydrateReminders(getUpcomingDeadlines).catch(() => {})
-  }, [userId])
-
-  // Tapping an Android notification opens straight to that note.
+  useEffect(() => { syncWidget(notes) }, [notes])
+  useEffect(() => { if (!userId) return; rehydrateReminders(getUpcomingDeadlines).catch(() => {}) }, [userId])
   useEffect(() => {
     let cleanup = () => {}
-    onNotificationTap((noteId) => {
-      setActiveId(noteId)
-      setMobileView('editor')
-    }).then((remove) => {
-      cleanup = remove
-    })
+    onNotificationTap((noteId) => { setActiveId(noteId); setMobileShowEditor(true) }).then((r) => { cleanup = r })
     return () => cleanup()
   }, [])
 
   async function handleCreateNote() {
     const note = await createNote()
     setActiveId(note.id)
-    setSidebarOpen(false)
-    setMobileView('editor')
+    setMobileShowEditor(true)
   }
 
   function handleSelectNote(id) {
     setActiveId(id)
-    setMobileView('editor')
+    setMobileShowEditor(true)
   }
 
   function handleFilterChange(f) {
-    setFilter(f)
-    setActiveTag(null)
-    setActiveDay(null)
-    setActiveId(null)
-    setSidebarOpen(false)
-    setMobileView('list')
+    setFilter(f); setActiveTag(null); setActiveDay(null); setActiveId(null); setMobileShowEditor(false)
   }
-
-  function handleTagSelect(tag) {
-    setActiveTag(tag)
-    setActiveId(null)
-    setSidebarOpen(false)
-    setMobileView('list')
-  }
-
-  // Drilling into a tag from the "By Tag" overview: keep filter === 'grouped'
-  // but now with a tag selected, so the back arrow returns to the overview.
-  function handleSelectTagFromOverview(name) {
-    setActiveTag(name)
-    setActiveId(null)
-    setMobileView('list')
-  }
-
-  // Drilling into a day from the Calendar menu: keep filter === 'calendar'
-  // but now with a day selected, so the back arrow returns to the month grid.
-  function handleSelectDay(day) {
-    setActiveDay(day)
-    setActiveId(null)
-    setMobileView('list')
-  }
-
-  async function handleRestore(id) {
-    await updateNote(id, { trashed: false })
-  }
-
-  async function handleHardDelete(id) {
-    await deleteNote(id, { hard: true })
-    if (activeId === id) {
-      setActiveId(null)
-      setMobileView('list')
-    }
-  }
-
-  // Deep links from the Android widget (monote://create, monote://open/<id>)
-  // — handled through Capacitor's App plugin, not window.location.search:
-  // the WebView always loads the same capacitor://localhost/index.html
-  // regardless of what custom-scheme intent launched/resumed the activity,
-  // so a query-string check on the page URL never actually sees these.
-  // `getLaunchUrl` covers a cold start, `appUrlOpen` covers the app already
-  // being open (Android just resumes it and fires onNewIntent natively).
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform() || !session) return
-
-    function handleUrl(url) {
-      if (!url) return
-      if (url.includes('://create')) {
-        handleCreateNote()
-      } else if (url.includes('://open/')) {
-        const id = url.split('://open/')[1]
-        if (id) {
-          setActiveId(id)
-          setMobileView('editor')
-        }
-      }
-    }
-
-    CapacitorApp.getLaunchUrl().then((res) => handleUrl(res?.url))
-    const listenerPromise = CapacitorApp.addListener('appUrlOpen', (data) => handleUrl(data.url))
-    return () => {
-      listenerPromise.then((l) => l.remove())
-    }
-  }, [session]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (session === undefined) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <span className="dot-label text-sm text-ink-500">Loading…</span>
-      </div>
-    )
+    return <div className="h-screen flex items-center justify-center text-sm" style={{ color: 'var(--muted)' }}>Loading...</div>
   }
-
-  if (!session) {
-    return <AuthScreen />
-  }
+  if (!session) return <AuthScreen />
 
   const showTagOverview = filter === 'grouped' && !activeTag
   const showCalendarOverview = filter === 'calendar' && !activeDay
@@ -230,96 +98,80 @@ export default function App() {
   const archivedView = filter === 'archived'
 
   return (
-    <div className="app-ambient h-[100dvh] flex overflow-hidden relative gap-0 md:gap-3 md:p-3 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
-      {/* Backdrop for the mobile sidebar drawer */}
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          className="fixed inset-0 bg-black/40 z-30 md:hidden"
-        />
-      )}
+    <div className="h-[100dvh] flex flex-col" style={{ background: 'var(--bg)' }}>
+      {/* Top bar */}
+      <header className={`flex items-center justify-between px-4 md:px-6 py-3 md:py-4 border-b ${mobileShowEditor ? 'hidden md:flex' : 'flex'}`} style={{ borderColor: 'var(--border-strong)' }}>
+        <h1 className="text-xl md:text-3xl font-semibold tracking-tight" style={{ color: 'var(--fg)' }}>monote</h1>
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2 border-b" style={{ borderColor: 'var(--border)' }}>
+            <Search size={16} style={{ color: 'var(--muted)' }} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search..."
+              className="bg-transparent py-2 w-48 text-sm focus:outline-none"
+              style={{ color: 'var(--fg)' }}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} aria-label="Clear search">
+                <X size={14} style={{ color: 'var(--muted)' }} />
+              </button>
+            )}
+          </div>
+          <button onClick={() => setDarkMode(d => !d)} className="btn-bw p-2" aria-label="Toggle theme">
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button onClick={handleCreateNote} className="btn-bw-solid py-2 px-3 md:px-4">
+            <Plus size={18} /> <span className="hidden sm:inline">New</span>
+          </button>
+        </div>
+      </header>
 
-      {/* Sidebar: static column on desktop, slide-in drawer on mobile.
-          `fixed` elements ignore the root's padding above (they position
-          against the viewport, not their padded parent), so this drawer
-          needs its own safe-area padding to clear the status/nav bars. */}
-      <div
-        className={`fixed inset-y-0 left-0 z-40 transform-gpu transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-reduce:transition-none
-          pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]
-          md:static md:translate-x-0 md:z-auto md:pt-0 md:pb-0 md:transform-none md:will-change-auto
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-      >
-        <Sidebar
-          filter={filter}
-          onFilterChange={handleFilterChange}
-          onCreateNote={handleCreateNote}
-          darkMode={darkMode}
-          onToggleDark={() => setDarkMode((d) => !d)}
-          tags={tags}
-          activeTag={activeTag}
-          onTagSelect={handleTagSelect}
-          onClose={() => setSidebarOpen(false)}
-        />
+      {/* Filter tabs */}
+      <div className={`items-center gap-1 px-4 md:px-6 py-2 md:py-3 border-b overflow-x-auto ${mobileShowEditor ? 'hidden md:flex' : 'flex'}`} style={{ borderColor: 'var(--border)' }}>
+        {FILTERS.map(f => (
+          <button
+            key={f.key}
+            onClick={() => handleFilterChange(f.key)}
+            className="px-3 md:px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors"
+            style={{
+              color: filter === f.key ? 'var(--bg)' : 'var(--muted)',
+              background: filter === f.key ? 'var(--fg)' : 'transparent',
+            }}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
-      {/* Note list / tag overview / calendar column */}
-      <div
-        className={`w-full md:w-80 min-w-0 shrink-0 flex-col overflow-hidden
-          md:rounded-[2rem] md:border md:border-black/10 dark:md:border-white/10
-          md:bg-white/45 dark:md:bg-white/[0.03] md:backdrop-blur-2xl md:shadow-glass
-          ${mobileView === 'editor' ? 'hidden' : 'flex'} md:flex`}
-      >
-        <div className="flex items-center gap-2 p-3 border-b border-hair bg-white/35 dark:bg-white/[0.02] backdrop-blur-xl md:hidden">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="icon-btn p-2.5"
-            aria-label="Open menu"
-          >
-            <Menu size={20} />
-          </button>
-          <span className="dot-label text-sm truncate">
-            {activeTag ? `#${activeTag}` : activeDay ? activeDay : FILTER_LABELS[filter]}
-          </span>
-        </div>
-
-        {filter === 'grouped' && activeTag && (
-          <button
-            onClick={() => setActiveTag(null)}
-            className="flex items-center gap-1.5 px-4 py-3 md:py-2.5 border-b border-hair text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000 hover:bg-white/40 dark:hover:bg-white/5 transition-colors"
-          >
-            <ChevronLeft size={18} className="md:hidden" />
-            <ChevronLeft size={14} className="hidden md:block" />
-            <span className="dot-label text-[11px]">All tags</span>
-          </button>
+      {/* Mobile search */}
+      <div className={`md:hidden items-center gap-2 px-4 py-2.5 border-b ${mobileShowEditor ? 'hidden' : 'flex'}`} style={{ borderColor: 'var(--border)' }}>
+        <Search size={16} style={{ color: 'var(--muted)' }} />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search notes..."
+          className="flex-1 bg-transparent text-sm focus:outline-none"
+          style={{ color: 'var(--fg)' }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} aria-label="Clear search"><X size={16} style={{ color: 'var(--muted)' }} /></button>
         )}
+      </div>
 
-        {filter === 'calendar' && activeDay && (
-          <button
-            onClick={() => setActiveDay(null)}
-            className="flex items-center gap-1.5 px-4 py-3 md:py-2.5 border-b border-hair text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000 hover:bg-white/40 dark:hover:bg-white/5 transition-colors"
-          >
-            <ChevronLeft size={18} className="md:hidden" />
-            <ChevronLeft size={14} className="hidden md:block" />
-            <span className="dot-label text-[11px]">Calendar</span>
-          </button>
-        )}
-
-        {showTagOverview ? (
-          <TagOverview
-            tags={tags}
-            onSelectTag={handleSelectTagFromOverview}
-            onUpdateTag={updateTag}
-            onDeleteTag={deleteTag}
-          />
-        ) : showCalendarOverview ? (
-          <CalendarView
-            onSelectDay={handleSelectDay}
-            onCreateNote={createNote}
-            onOpenNote={handleSelectNote}
-          />
-        ) : (
-          <>
-            <SearchBar value={search} onChange={setSearch} view={view} onViewChange={setView} />
+      {/* Main content: split view */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* List panel */}
+        <div
+          className={`w-full md:w-[380px] lg:w-[420px] shrink-0 flex flex-col border-r overflow-hidden
+            ${mobileShowEditor ? 'hidden md:flex' : 'flex'}`}
+          style={{ borderColor: 'var(--border)' }}
+        >
+          {showTagOverview ? (
+            <TagOverview tags={tags} onSelectTag={(name) => { setActiveTag(name); setMobileShowEditor(false) }} onUpdateTag={updateTag} onDeleteTag={deleteTag} />
+          ) : showCalendarOverview ? (
+            <CalendarView onSelectDay={(d) => { setActiveDay(d); setMobileShowEditor(false) }} onCreateNote={createNote} onOpenNote={handleSelectNote} />
+          ) : (
             <NoteList
               notes={notes}
               activeId={activeId}
@@ -330,51 +182,36 @@ export default function App() {
               isFetchingMore={isFetchingMore}
               onLoadMore={loadMore}
               trashedView={trashedView}
-              onRestore={handleRestore}
-              onHardDelete={handleHardDelete}
+              onRestore={async (id) => { await updateNote(id, { trashed: false }) }}
+              onHardDelete={async (id) => { await deleteNote(id, { hard: true }); if (activeId === id) setActiveId(null) }}
               archivedView={archivedView}
-              onUnarchive={(id) => updateNote(id, { archived: false })}
+              onUnarchive={async (id) => { await updateNote(id, { archived: false }) }}
             />
-          </>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Editor column */}
-      <div
-        className={`flex-1 min-w-0 min-h-0 flex-col overflow-hidden
-          md:rounded-[2rem] md:border md:border-black/10 dark:md:border-white/10
-          md:bg-white/45 dark:md:bg-white/[0.03] md:backdrop-blur-2xl md:shadow-glass
-          ${mobileView === 'list' ? 'hidden' : 'flex'} md:flex`}
-      >
-        <button
-          onClick={() => setMobileView('list')}
-          className="flex items-center gap-1.5 px-4 py-3 border-b border-hair text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000 bg-white/35 dark:bg-white/[0.02] backdrop-blur-xl md:hidden"
-        >
-          <ChevronLeft size={18} />
-          <span className="dot-label text-[11px]">Back</span>
-        </button>
-        <NoteEditor
-          note={activeNote}
-          allTags={tags}
-          colorOf={colorOf}
-          onCreateTag={createTag}
-          onDeleteTag={deleteTag}
-          onChange={updateNote}
-          onTogglePin={togglePin}
-          onToggleDone={toggleDone}
-          onArchive={(id, archived) => {
-            updateNote(id, { archived })
-            setActiveId(null)
-            setMobileView('list')
-          }}
-          onDelete={(id) => {
-            deleteNote(id)
-            setActiveId(null)
-            setMobileView('list')
-          }}
-          onRestore={handleRestore}
-          onHardDelete={handleHardDelete}
-        />
+        {/* Editor panel */}
+        <div className={`flex-1 flex flex-col overflow-hidden ${mobileShowEditor ? 'flex' : 'hidden md:flex'}`}>
+          <div className="md:hidden flex items-center gap-2 px-4 py-2.5 border-b" style={{ borderColor: 'var(--border)' }}>
+            <button onClick={() => setMobileShowEditor(false)} className="btn-bw py-2 px-4 text-sm">
+              ← Back
+            </button>
+          </div>
+          <NoteEditor
+            note={activeNote}
+            allTags={tags}
+            colorOf={colorOf}
+            onCreateTag={createTag}
+            onDeleteTag={deleteTag}
+            onChange={updateNote}
+            onTogglePin={togglePin}
+            onToggleDone={toggleDone}
+            onArchive={(id, archived) => { updateNote(id, { archived }); setActiveId(null); setMobileShowEditor(false) }}
+            onDelete={(id) => { deleteNote(id); setActiveId(null); setMobileShowEditor(false) }}
+            onRestore={async (id) => { await updateNote(id, { trashed: false }) }}
+            onHardDelete={async (id) => { await deleteNote(id, { hard: true }); setActiveId(null); setMobileShowEditor(false) }}
+          />
+        </div>
       </div>
     </div>
   )

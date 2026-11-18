@@ -2,34 +2,32 @@ import { Search, List, LayoutGrid } from 'lucide-react'
 
 export default function SearchBar({ value, onChange, view, onViewChange }) {
   return (
-    <div className="flex items-center gap-2 p-3 md:p-3.5 border-b border-hair min-w-0 overflow-hidden">
-      <div className="glass-input flex-1 min-w-0 flex items-center gap-2 px-4 py-2.5 md:py-2">
-        <Search size={17} className="md:w-4 md:h-4 text-ink-500 shrink-0" />
+    <div className="flex items-center gap-2 p-3" style={{ borderBottom: '1px solid var(--border)' }}>
+      <div className="relative flex-1">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Search notes, tags..."
-          className="flex-1 min-w-0 w-full bg-transparent outline-none text-base md:text-sm placeholder:text-ink-500"
+          placeholder="Search notes..."
+          className="input-field pl-9 py-2"
         />
       </div>
-      <div className="pill p-0.5 shrink-0">
+      <div className="flex items-center rounded-lg p-0.5" style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
         <button
           onClick={() => onViewChange('list')}
-          className={`rounded-full p-2.5 md:p-2 transition-colors ${
-            view === 'list' ? 'pill-invert' : 'text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000'
-          }`}
+          className={`p-2 rounded-md transition-colors ${view === 'list' ? 'bg-white dark:bg-neutral-700 shadow-sm' : ''}`}
+          style={{ color: view === 'list' ? 'var(--text)' : 'var(--muted)' }}
           aria-label="List view"
         >
-          <List size={17} className="md:w-4 md:h-4" />
+          <List size={18} />
         </button>
         <button
           onClick={() => onViewChange('grid')}
-          className={`rounded-full p-2.5 md:p-2 transition-colors ${
-            view === 'grid' ? 'pill-invert' : 'text-ink-500 hover:text-ink-0 dark:hover:text-ink-1000'
-          }`}
+          className={`p-2 rounded-md transition-colors ${view === 'grid' ? 'bg-white dark:bg-neutral-700 shadow-sm' : ''}`}
+          style={{ color: view === 'grid' ? 'var(--text)' : 'var(--muted)' }}
           aria-label="Grid view"
         >
-          <LayoutGrid size={17} className="md:w-4 md:h-4" />
+          <LayoutGrid size={18} />
         </button>
       </div>
     </div>
